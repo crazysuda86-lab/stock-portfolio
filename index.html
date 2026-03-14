@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>주식 포트폴리오 V3</title>
+  <title>주식 포트폴리오 V4</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -14,7 +14,7 @@
       color: #111827;
     }
     .container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 24px;
     }
@@ -28,7 +28,7 @@
     }
     .grid {
       display: grid;
-      grid-template-columns: 1.5fr 1fr;
+      grid-template-columns: 1.7fr 1fr;
       gap: 20px;
     }
     .card {
@@ -46,21 +46,11 @@
       color: #6b7280;
       font-size: 13px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 12px;
-    }
-    th, td {
-      padding: 10px 8px;
-      border-bottom: 1px solid #e5e7eb;
-      text-align: left;
-      vertical-align: middle;
-    }
-    th {
-      background: #f9fafb;
-      font-size: 13px;
-      color: #374151;
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
     }
     input, select, textarea {
       width: 100%;
@@ -74,10 +64,32 @@
       min-height: 90px;
       resize: vertical;
     }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th {
+      background: #f9fafb;
+      color: #374151;
+      font-size: 12px;
+      position: sticky;
+      top: 0;
+    }
+    .table-wrap {
+      overflow-x: auto;
+    }
     .btn-row {
       display: flex;
-      flex-wrap: wrap;
       gap: 10px;
+      flex-wrap: wrap;
       margin-top: 14px;
     }
     button {
@@ -122,17 +134,12 @@
     .profit-plus { color: #047857; }
     .profit-minus { color: #b91c1c; }
     .warn { color: #b45309; }
-    .controls {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 14px;
-    }
     .section-gap {
       margin-top: 18px;
     }
-    canvas {
-      max-height: 320px;
+    .empty {
+      color: #9ca3af;
+      padding: 16px 0;
     }
     .pill {
       display: inline-block;
@@ -143,32 +150,30 @@
       color: #3730a3;
       margin-left: 8px;
     }
-    .empty {
-      color: #9ca3af;
-      padding: 16px 0;
+    .chart-box {
+      height: 320px;
     }
 
-    @media (max-width: 980px) {
+    @media (max-width: 1100px) {
       .grid {
         grid-template-columns: 1fr;
       }
-      .summary-box,
       .controls {
+        grid-template-columns: 1fr;
+      }
+      .summary-box {
         grid-template-columns: 1fr;
       }
       h1 {
         font-size: 26px;
-      }
-      table {
-        font-size: 13px;
       }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>주식 포트폴리오 V3</h1>
-    <div class="sub">목표 비중, 현재 비중, 리밸런싱 차이까지 한 번에 보는 투자 관리판입니다.</div>
+    <h1>주식 포트폴리오 V4</h1>
+    <div class="sub">증권사별 자산, 현금 비중, 목표 비중, 매수/매도 추천수량까지 보는 통합 포트폴리오 관리판입니다.</div>
 
     <div class="grid">
       <div>
@@ -186,30 +191,60 @@
               <label class="small">환율 (1 USD = ? KRW)</label>
               <input type="number" id="exchangeRate" value="1350" min="0" step="any" oninput="calculatePortfolio()" />
             </div>
+            <div>
+              <label class="small">추천수량 계산 기준</label>
+              <select id="tradeMode" onchange="calculatePortfolio()">
+                <option value="whole">정수 수량</option>
+                <option value="fractional">소수 수량 허용</option>
+              </select>
+            </div>
           </div>
-          <div class="small">KRW를 선택하면 달러 기준 입력값을 환산해서 보여줍니다.</div>
+          <div class="small">KRW 선택 시 달러 입력 데이터를 원화로 환산해 보여줍니다.</div>
         </div>
 
         <div class="card">
-          <h2>종목 입력 <span class="pill">목표 비중 포함</span></h2>
-          <div class="small">종목명, 수량, 매수가, 현재가, 목표 비중을 입력하세요.</div>
+          <h2>현금 입력 <span class="pill">증권사별 현금 분리</span></h2>
+          <div class="table-wrap">
+            <table id="cashTable">
+              <thead>
+                <tr>
+                  <th>증권사</th>
+                  <th>통화</th>
+                  <th>현금금액</th>
+                  <th>삭제</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="btn-row">
+            <button class="light" onclick="addCashRow()">현금 행 추가</button>
+          </div>
+        </div>
 
-          <table id="portfolioTable">
-            <thead>
-              <tr>
-                <th>종목명</th>
-                <th>수량</th>
-                <th>매수가($)</th>
-                <th>현재가($)</th>
-                <th>목표비중(%)</th>
-                <th>삭제</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+        <div class="card">
+          <h2>종목 입력 <span class="pill">증권사/목표비중/추천수량 포함</span></h2>
+          <div class="small">종목별로 어느 증권사에 있는지 입력하세요. 현금은 위 현금표에서 따로 관리합니다.</div>
+
+          <div class="table-wrap">
+            <table id="portfolioTable">
+              <thead>
+                <tr>
+                  <th>증권사</th>
+                  <th>종목명</th>
+                  <th>수량</th>
+                  <th>매수가($)</th>
+                  <th>현재가($)</th>
+                  <th>목표비중(%)</th>
+                  <th>삭제</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
 
           <div class="btn-row">
-            <button onclick="addRow()">행 추가</button>
+            <button onclick="addRow()">종목 행 추가</button>
             <button class="secondary" onclick="calculatePortfolio()">계산하기</button>
             <button class="light" onclick="savePortfolio()">저장</button>
             <button class="light" onclick="downloadCSV()">CSV 다운로드</button>
@@ -223,8 +258,13 @@
         </div>
 
         <div class="card">
+          <h2>리밸런싱 / 매수·매도 추천수량</h2>
+          <div id="rebalanceOutput" class="small">아직 계산 전입니다.</div>
+        </div>
+
+        <div class="card">
           <h2>투자 메모</h2>
-          <textarea id="memo" placeholder="예: 매일 1달러 자동투자, 분할매수 원칙, 목표 비중 조정 계획 등"></textarea>
+          <textarea id="memo" placeholder="예: 토스증권 미국 ETF 매일 1달러 자동투자 / IRP는 장기보유 / 현금비중 10% 유지"></textarea>
           <div class="btn-row">
             <button class="light" onclick="savePortfolio()">메모 포함 저장</button>
           </div>
@@ -240,8 +280,16 @@
               <div class="value" id="totalBuy">$0</div>
             </div>
             <div class="metric">
-              <div class="label">총 평가금액</div>
-              <div class="value" id="totalNow">$0</div>
+              <div class="label">총 주식 평가금액</div>
+              <div class="value" id="totalStock">$0</div>
+            </div>
+            <div class="metric">
+              <div class="label">총 현금</div>
+              <div class="value" id="totalCash">$0</div>
+            </div>
+            <div class="metric">
+              <div class="label">총 자산</div>
+              <div class="value" id="totalAsset">$0</div>
             </div>
             <div class="metric">
               <div class="label">평가손익</div>
@@ -256,27 +304,49 @@
 
         <div class="card">
           <h2>자산 비중 그래프</h2>
-          <canvas id="portfolioChart"></canvas>
-          <div class="small section-gap">현재 평가금액 기준 비중입니다.</div>
+          <div class="chart-box">
+            <canvas id="portfolioChart"></canvas>
+          </div>
+          <div class="small section-gap">주식 + 현금 포함 전체 자산 기준입니다.</div>
         </div>
 
         <div class="card">
-          <h2>리밸런싱 점검</h2>
-          <div id="rebalanceOutput" class="small">아직 계산 전입니다.</div>
+          <h2>증권사별 자산 그래프</h2>
+          <div class="chart-box">
+            <canvas id="brokerChart"></canvas>
+          </div>
+          <div class="small section-gap">증권사별 주식 + 현금 합산 기준입니다.</div>
+        </div>
+
+        <div class="card">
+          <h2>증권사별 요약</h2>
+          <div id="brokerOutput" class="small">아직 계산 전입니다.</div>
+        </div>
+
+        <div class="card">
+          <h2>현금 비중 점검</h2>
+          <div id="cashOutput" class="small">아직 계산 전입니다.</div>
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    const defaultData = [
-      { name: "VOO", qty: 10, buy: 500, now: 530, target: 40 },
-      { name: "QQQ", qty: 5, buy: 450, now: 470, target: 30 },
-      { name: "NVDA", qty: 3, buy: 700, now: 850, target: 20 },
-      { name: "CASH", qty: 1, buy: 1000, now: 1000, target: 10 }
+    const defaultStocks = [
+      { broker: "토스증권", name: "VOO", qty: 10, buy: 500, now: 530, target: 30 },
+      { broker: "KB증권", name: "QQQ", qty: 5, buy: 450, now: 470, target: 20 },
+      { broker: "키움증권", name: "NVDA", qty: 3, buy: 700, now: 850, target: 15 },
+      { broker: "하나은행 IRP", name: "S&P500 ETF", qty: 20, buy: 80, now: 88, target: 15 }
     ];
 
-    let chartInstance = null;
+    const defaultCash = [
+      { broker: "토스증권", currency: "USD", amount: 300 },
+      { broker: "KB증권", currency: "KRW", amount: 500000 },
+      { broker: "하나은행 IRP", currency: "KRW", amount: 1000000 }
+    ];
+
+    let portfolioChartInstance = null;
+    let brokerChartInstance = null;
 
     function getCurrency() {
       return document.getElementById("currencySelect").value;
@@ -286,28 +356,35 @@
       return Number(document.getElementById("exchangeRate").value) || 0;
     }
 
-    function convertDisplay(valueInUSD) {
-      const currency = getCurrency();
+    function getTradeMode() {
+      return document.getElementById("tradeMode").value;
+    }
+
+    function convertUSDToDisplay(valueInUSD) {
+      return getCurrency() === "KRW" ? valueInUSD * getExchangeRate() : valueInUSD;
+    }
+
+    function convertCashToUSD(amount, currency) {
       if (currency === "KRW") {
-        return valueInUSD * getExchangeRate();
+        const rate = getExchangeRate();
+        return rate > 0 ? amount / rate : 0;
       }
-      return valueInUSD;
+      return amount;
     }
 
     function formatMoney(valueInUSD) {
-      const currency = getCurrency();
-      const displayValue = convertDisplay(valueInUSD);
-
-      if (currency === "KRW") {
+      const displayValue = convertUSDToDisplay(valueInUSD);
+      if (getCurrency() === "KRW") {
         return "₩" + Number(displayValue).toLocaleString(undefined, { maximumFractionDigits: 0 });
       }
       return "$" + Number(displayValue).toLocaleString(undefined, { maximumFractionDigits: 2 });
     }
 
-    function createRow(data = { name: "", qty: 0, buy: 0, now: 0, target: 0 }) {
+    function createRow(data = { broker: "", name: "", qty: 0, buy: 0, now: 0, target: 0 }) {
       const tbody = document.querySelector("#portfolioTable tbody");
       const row = document.createElement("tr");
       row.innerHTML = `
+        <td><input type="text" value="${data.broker}" placeholder="예: 토스증권"></td>
         <td><input type="text" value="${data.name}" placeholder="예: VOO"></td>
         <td><input type="number" value="${data.qty}" min="0" step="any"></td>
         <td><input type="number" value="${data.buy}" min="0" step="any"></td>
@@ -328,21 +405,48 @@
       savePortfolio(false);
     }
 
-    function getPortfolioData() {
+    function createCashRow(data = { broker: "", currency: "USD", amount: 0 }) {
+      const tbody = document.querySelector("#cashTable tbody");
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td><input type="text" value="${data.broker}" placeholder="예: 토스증권"></td>
+        <td>
+          <select>
+            <option value="USD" ${data.currency === "USD" ? "selected" : ""}>USD</option>
+            <option value="KRW" ${data.currency === "KRW" ? "selected" : ""}>KRW</option>
+          </select>
+        </td>
+        <td><input type="number" value="${data.amount}" min="0" step="any"></td>
+        <td><button class="danger delete-btn" onclick="deleteCashRow(this)">삭제</button></td>
+      `;
+      tbody.appendChild(row);
+    }
+
+    function addCashRow() {
+      createCashRow();
+    }
+
+    function deleteCashRow(button) {
+      button.closest("tr").remove();
+      calculatePortfolio();
+      savePortfolio(false);
+    }
+
+    function getStockData() {
       const rows = document.querySelectorAll("#portfolioTable tbody tr");
       const items = [];
 
       rows.forEach(row => {
         const inputs = row.querySelectorAll("input");
         const item = {
-          name: inputs[0].value.trim(),
-          qty: Number(inputs[1].value),
-          buy: Number(inputs[2].value),
-          now: Number(inputs[3].value),
-          target: Number(inputs[4].value)
+          broker: inputs[0].value.trim(),
+          name: inputs[1].value.trim(),
+          qty: Number(inputs[2].value),
+          buy: Number(inputs[3].value),
+          now: Number(inputs[4].value),
+          target: Number(inputs[5].value)
         };
-
-        if (item.name || item.qty || item.buy || item.now || item.target) {
+        if (item.broker || item.name || item.qty || item.buy || item.now || item.target) {
           items.push(item);
         }
       });
@@ -350,21 +454,48 @@
       return items;
     }
 
-    function calculatePortfolio() {
-      const items = getPortfolioData();
-      let totalBuy = 0;
-      let totalNow = 0;
+    function getCashData() {
+      const rows = document.querySelectorAll("#cashTable tbody tr");
+      const items = [];
 
-      items.forEach(item => {
-        totalBuy += item.qty * item.buy;
-        totalNow += item.qty * item.now;
+      rows.forEach(row => {
+        const broker = row.querySelector('input[type="text"]').value.trim();
+        const currency = row.querySelector("select").value;
+        const amount = Number(row.querySelector('input[type="number"]').value);
+
+        if (broker || amount) {
+          items.push({ broker, currency, amount });
+        }
       });
 
-      const profit = totalNow - totalBuy;
+      return items;
+    }
+
+    function calculatePortfolio() {
+      const stocks = getStockData();
+      const cashItems = getCashData();
+
+      let totalBuy = 0;
+      let totalStock = 0;
+      let totalCash = 0;
+
+      stocks.forEach(item => {
+        totalBuy += item.qty * item.buy;
+        totalStock += item.qty * item.now;
+      });
+
+      cashItems.forEach(item => {
+        totalCash += convertCashToUSD(item.amount, item.currency);
+      });
+
+      const totalAsset = totalStock + totalCash;
+      const profit = totalStock - totalBuy;
       const rate = totalBuy === 0 ? 0 : (profit / totalBuy) * 100;
 
       document.getElementById("totalBuy").textContent = formatMoney(totalBuy);
-      document.getElementById("totalNow").textContent = formatMoney(totalNow);
+      document.getElementById("totalStock").textContent = formatMoney(totalStock);
+      document.getElementById("totalCash").textContent = formatMoney(totalCash);
+      document.getElementById("totalAsset").textContent = formatMoney(totalAsset);
 
       const profitEl = document.getElementById("totalProfit");
       const rateEl = document.getElementById("totalRate");
@@ -374,44 +505,50 @@
       profitEl.className = "value " + (profit >= 0 ? "profit-plus" : "profit-minus");
       rateEl.className = "value " + (rate >= 0 ? "profit-plus" : "profit-minus");
 
-      renderDetail(items, totalNow);
-      renderChart(items);
-      renderRebalance(items, totalNow);
+      renderDetail(stocks, totalAsset);
+      renderRebalance(stocks, totalAsset);
+      renderAssetChart(stocks, cashItems);
+      renderBrokerChart(stocks, cashItems);
+      renderBrokerSummary(stocks, cashItems);
+      renderCashSummary(totalCash, totalAsset, cashItems);
     }
 
-    function renderDetail(items, totalNow) {
+    function renderDetail(stocks, totalAsset) {
       const detailOutput = document.getElementById("detailOutput");
 
-      if (items.length === 0) {
+      if (stocks.length === 0) {
         detailOutput.innerHTML = `<div class="empty">입력된 종목이 없습니다.</div>`;
         return;
       }
 
       let html = `
-        <table>
-          <thead>
-            <tr>
-              <th>종목</th>
-              <th>매수금액</th>
-              <th>평가금액</th>
-              <th>손익</th>
-              <th>수익률</th>
-              <th>현재비중</th>
-              <th>목표비중</th>
-            </tr>
-          </thead>
-          <tbody>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>증권사</th>
+                <th>종목</th>
+                <th>매수금액</th>
+                <th>평가금액</th>
+                <th>손익</th>
+                <th>수익률</th>
+                <th>전체자산비중</th>
+                <th>목표비중</th>
+              </tr>
+            </thead>
+            <tbody>
       `;
 
-      items.forEach(item => {
+      stocks.forEach(item => {
         const buyTotal = item.qty * item.buy;
         const nowTotal = item.qty * item.now;
         const profit = nowTotal - buyTotal;
         const rate = buyTotal === 0 ? 0 : (profit / buyTotal) * 100;
-        const weight = totalNow === 0 ? 0 : (nowTotal / totalNow) * 100;
+        const weight = totalAsset === 0 ? 0 : (nowTotal / totalAsset) * 100;
 
         html += `
           <tr>
+            <td>${item.broker || "-"}</td>
             <td>${item.name || "-"}</td>
             <td>${formatMoney(buyTotal)}</td>
             <td>${formatMoney(nowTotal)}</td>
@@ -423,135 +560,297 @@
         `;
       });
 
-      html += `</tbody></table>`;
+      html += `</tbody></table></div>`;
       detailOutput.innerHTML = html;
     }
 
-    function renderChart(items) {
-      const ctx = document.getElementById("portfolioChart");
-      const filtered = items.filter(item => item.name && item.qty > 0 && item.now > 0);
-      const labels = filtered.map(item => item.name);
-      const data = filtered.map(item => item.qty * item.now);
-
-      if (chartInstance) {
-        chartInstance.destroy();
-      }
-
-      if (data.length === 0) {
-        chartInstance = new Chart(ctx, {
-          type: "doughnut",
-          data: {
-            labels: ["데이터 없음"],
-            datasets: [{ data: [1] }]
-          },
-          options: {
-            responsive: true,
-            plugins: { legend: { position: "bottom" } }
-          }
-        });
-        return;
-      }
-
-      chartInstance = new Chart(ctx, {
-        type: "doughnut",
-        data: {
-          labels,
-          datasets: [{ data }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: "bottom" }
-          }
-        }
-      });
-    }
-
-    function renderRebalance(items, totalNow) {
+    function renderRebalance(stocks, totalAsset) {
       const rebalanceOutput = document.getElementById("rebalanceOutput");
 
-      if (items.length === 0 || totalNow === 0) {
-        rebalanceOutput.innerHTML = `<div class="empty">리밸런싱 계산을 위한 데이터가 없습니다.</div>`;
+      if (stocks.length === 0 || totalAsset === 0) {
+        rebalanceOutput.innerHTML = `<div class="empty">리밸런싱 계산 데이터가 없습니다.</div>`;
         return;
       }
 
-      const targetSum = items.reduce((sum, item) => sum + Number(item.target || 0), 0);
+      const targetSum = stocks.reduce((sum, item) => sum + Number(item.target || 0), 0);
 
       let html = `
         <div class="small" style="margin-bottom:12px;">
-          목표 비중 합계: <strong>${targetSum.toFixed(2)}%</strong>
-          ${Math.abs(targetSum - 100) > 0.01 ? '<span class="warn"> (100%가 아니므로 참고용 계산입니다)</span>' : ''}
+          주식 목표 비중 합계: <strong>${targetSum.toFixed(2)}%</strong>
+          ${Math.abs(targetSum - 100) > 0.01 ? '<span class="warn">(100%가 아니면 현금 비중을 별도로 남기는 전략일 수 있습니다)</span>' : ''}
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>종목</th>
-              <th>현재비중</th>
-              <th>목표비중</th>
-              <th>차이</th>
-              <th>목표 평가금액</th>
-            </tr>
-          </thead>
-          <tbody>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>증권사</th>
+                <th>종목</th>
+                <th>현재비중</th>
+                <th>목표비중</th>
+                <th>차이</th>
+                <th>목표 평가금액</th>
+                <th>추천 금액</th>
+                <th>추천 수량</th>
+                <th>액션</th>
+              </tr>
+            </thead>
+            <tbody>
       `;
 
-      items.forEach(item => {
-        const nowTotal = item.qty * item.now;
-        const currentWeight = totalNow === 0 ? 0 : (nowTotal / totalNow) * 100;
+      stocks.forEach(item => {
+        const currentValue = item.qty * item.now;
+        const currentWeight = totalAsset === 0 ? 0 : (currentValue / totalAsset) * 100;
         const targetWeight = Number(item.target || 0);
         const diff = currentWeight - targetWeight;
-        const targetValue = totalNow * (targetWeight / 100);
+        const targetValue = totalAsset * (targetWeight / 100);
+        const tradeValue = targetValue - currentValue;
+        const tradeQtyRaw = item.now > 0 ? tradeValue / item.now : 0;
+
+        let tradeQty;
+        if (getTradeMode() === "whole") {
+          tradeQty = tradeQtyRaw > 0 ? Math.floor(tradeQtyRaw) : Math.ceil(tradeQtyRaw);
+        } else {
+          tradeQty = tradeQtyRaw;
+        }
+
+        const action = tradeQty > 0 ? "매수" : tradeQty < 0 ? "매도" : "유지";
+        const qtyText = getTradeMode() === "whole" ? String(tradeQty) : tradeQty.toFixed(4);
 
         html += `
           <tr>
+            <td>${item.broker || "-"}</td>
             <td>${item.name || "-"}</td>
             <td>${currentWeight.toFixed(2)}%</td>
             <td>${targetWeight.toFixed(2)}%</td>
-            <td class="${diff > 0 ? "warn" : (diff < 0 ? "profit-minus" : "")}">
+            <td class="${diff > 0 ? "warn" : diff < 0 ? "profit-minus" : ""}">
               ${diff > 0 ? "+" : ""}${diff.toFixed(2)}%
             </td>
             <td>${formatMoney(targetValue)}</td>
+            <td class="${tradeValue >= 0 ? "profit-plus" : "profit-minus"}">${formatMoney(tradeValue)}</td>
+            <td>${qtyText}</td>
+            <td class="${action === "매수" ? "profit-plus" : action === "매도" ? "profit-minus" : ""}">${action}</td>
           </tr>
         `;
       });
 
-      html += `</tbody></table>`;
+      html += `</tbody></table></div>`;
       rebalanceOutput.innerHTML = html;
     }
 
+    function renderAssetChart(stocks, cashItems) {
+      const ctx = document.getElementById("portfolioChart");
+
+      const labels = [];
+      const data = [];
+
+      stocks.forEach(item => {
+        const value = item.qty * item.now;
+        if (item.name && value > 0) {
+          labels.push(item.name);
+          data.push(value);
+        }
+      });
+
+      const totalCash = cashItems.reduce((sum, item) => sum + convertCashToUSD(item.amount, item.currency), 0);
+      if (totalCash > 0) {
+        labels.push("현금");
+        data.push(totalCash);
+      }
+
+      if (portfolioChartInstance) portfolioChartInstance.destroy();
+
+      if (data.length === 0) {
+        portfolioChartInstance = new Chart(ctx, {
+          type: "doughnut",
+          data: { labels: ["데이터 없음"], datasets: [{ data: [1] }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+        });
+        return;
+      }
+
+      portfolioChartInstance = new Chart(ctx, {
+        type: "doughnut",
+        data: { labels, datasets: [{ data }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      });
+    }
+
+    function renderBrokerChart(stocks, cashItems) {
+      const ctx = document.getElementById("brokerChart");
+      const brokerMap = {};
+
+      stocks.forEach(item => {
+        const broker = item.broker || "미분류";
+        brokerMap[broker] = (brokerMap[broker] || 0) + (item.qty * item.now);
+      });
+
+      cashItems.forEach(item => {
+        const broker = item.broker || "미분류";
+        brokerMap[broker] = (brokerMap[broker] || 0) + convertCashToUSD(item.amount, item.currency);
+      });
+
+      const labels = Object.keys(brokerMap);
+      const data = Object.values(brokerMap);
+
+      if (brokerChartInstance) brokerChartInstance.destroy();
+
+      if (data.length === 0) {
+        brokerChartInstance = new Chart(ctx, {
+          type: "pie",
+          data: { labels: ["데이터 없음"], datasets: [{ data: [1] }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+        });
+        return;
+      }
+
+      brokerChartInstance = new Chart(ctx, {
+        type: "pie",
+        data: { labels, datasets: [{ data }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+      });
+    }
+
+    function renderBrokerSummary(stocks, cashItems) {
+      const brokerOutput = document.getElementById("brokerOutput");
+      const brokerMap = {};
+
+      stocks.forEach(item => {
+        const broker = item.broker || "미분류";
+        if (!brokerMap[broker]) brokerMap[broker] = { stock: 0, cash: 0 };
+        brokerMap[broker].stock += item.qty * item.now;
+      });
+
+      cashItems.forEach(item => {
+        const broker = item.broker || "미분류";
+        if (!brokerMap[broker]) brokerMap[broker] = { stock: 0, cash: 0 };
+        brokerMap[broker].cash += convertCashToUSD(item.amount, item.currency);
+      });
+
+      const brokers = Object.keys(brokerMap);
+
+      if (brokers.length === 0) {
+        brokerOutput.innerHTML = `<div class="empty">증권사 데이터가 없습니다.</div>`;
+        return;
+      }
+
+      let html = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>증권사</th>
+                <th>주식자산</th>
+                <th>현금자산</th>
+                <th>총자산</th>
+                <th>현금비중</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      brokers.forEach(broker => {
+        const stock = brokerMap[broker].stock;
+        const cash = brokerMap[broker].cash;
+        const total = stock + cash;
+        const cashWeight = total === 0 ? 0 : (cash / total) * 100;
+
+        html += `
+          <tr>
+            <td>${broker}</td>
+            <td>${formatMoney(stock)}</td>
+            <td>${formatMoney(cash)}</td>
+            <td>${formatMoney(total)}</td>
+            <td>${cashWeight.toFixed(2)}%</td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table></div>`;
+      brokerOutput.innerHTML = html;
+    }
+
+    function renderCashSummary(totalCash, totalAsset, cashItems) {
+      const cashOutput = document.getElementById("cashOutput");
+
+      if (totalAsset === 0) {
+        cashOutput.innerHTML = `<div class="empty">현금 비중 계산 데이터가 없습니다.</div>`;
+        return;
+      }
+
+      const cashWeight = (totalCash / totalAsset) * 100;
+      const cashRows = cashItems.map(item => {
+        const usd = convertCashToUSD(item.amount, item.currency);
+        return `<tr>
+          <td>${item.broker || "-"}</td>
+          <td>${item.currency}</td>
+          <td>${item.currency === "KRW" ? "₩" + Number(item.amount).toLocaleString() : "$" + Number(item.amount).toLocaleString()}</td>
+          <td>${formatMoney(usd)}</td>
+        </tr>`;
+      }).join("");
+
+      cashOutput.innerHTML = `
+        <div class="small" style="margin-bottom:12px;">
+          전체 자산 대비 현금 비중: <strong>${cashWeight.toFixed(2)}%</strong>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>증권사</th>
+                <th>통화</th>
+                <th>원금액</th>
+                <th>환산금액</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${cashRows || '<tr><td colspan="4">입력된 현금이 없습니다.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
     function savePortfolio(showAlert = true) {
-      const items = getPortfolioData();
       const payload = {
-        items,
+        stocks: getStockData(),
+        cash: getCashData(),
         currency: document.getElementById("currencySelect").value,
         exchangeRate: document.getElementById("exchangeRate").value,
+        tradeMode: document.getElementById("tradeMode").value,
         memo: document.getElementById("memo").value
       };
 
-      localStorage.setItem("stockPortfolioV3", JSON.stringify(payload));
+      localStorage.setItem("stockPortfolioV4", JSON.stringify(payload));
       if (showAlert) alert("포트폴리오가 저장되었습니다.");
     }
 
     function loadPortfolio() {
-      const tbody = document.querySelector("#portfolioTable tbody");
-      tbody.innerHTML = "";
+      const stockBody = document.querySelector("#portfolioTable tbody");
+      const cashBody = document.querySelector("#cashTable tbody");
+      stockBody.innerHTML = "";
+      cashBody.innerHTML = "";
 
-      const saved = localStorage.getItem("stockPortfolioV3");
+      const saved = localStorage.getItem("stockPortfolioV4");
 
       if (saved) {
         const payload = JSON.parse(saved);
-        const items = payload.items || [];
+        (payload.stocks || []).forEach(item => createRow(item));
+        (payload.cash || []).forEach(item => createCashRow(item));
+
         document.getElementById("currencySelect").value = payload.currency || "USD";
         document.getElementById("exchangeRate").value = payload.exchangeRate || 1350;
+        document.getElementById("tradeMode").value = payload.tradeMode || "whole";
         document.getElementById("memo").value = payload.memo || "";
 
-        if (items.length > 0) {
-          items.forEach(item => createRow(item));
-        } else {
-          defaultData.forEach(item => createRow(item));
+        if ((payload.stocks || []).length === 0) {
+          defaultStocks.forEach(item => createRow(item));
+        }
+        if ((payload.cash || []).length === 0) {
+          defaultCash.forEach(item => createCashRow(item));
         }
       } else {
-        defaultData.forEach(item => createRow(item));
+        defaultStocks.forEach(item => createRow(item));
+        defaultCash.forEach(item => createCashRow(item));
       }
 
       calculatePortfolio();
@@ -561,37 +860,57 @@
       const ok = confirm("모든 입력값과 저장 데이터를 초기화할까요?");
       if (!ok) return;
 
-      localStorage.removeItem("stockPortfolioV3");
+      localStorage.removeItem("stockPortfolioV4");
       document.getElementById("memo").value = "";
       document.getElementById("currencySelect").value = "USD";
       document.getElementById("exchangeRate").value = 1350;
+      document.getElementById("tradeMode").value = "whole";
 
-      const tbody = document.querySelector("#portfolioTable tbody");
-      tbody.innerHTML = "";
-      defaultData.forEach(item => createRow(item));
+      const stockBody = document.querySelector("#portfolioTable tbody");
+      const cashBody = document.querySelector("#cashTable tbody");
+      stockBody.innerHTML = "";
+      cashBody.innerHTML = "";
+
+      defaultStocks.forEach(item => createRow(item));
+      defaultCash.forEach(item => createCashRow(item));
       calculatePortfolio();
     }
 
     function downloadCSV() {
-      const items = getPortfolioData();
-      if (items.length === 0) {
-        alert("다운로드할 데이터가 없습니다.");
-        return;
-      }
+      const stocks = getStockData();
+      const cash = getCashData();
 
       const rows = [
-        ["종목명", "수량", "매수가USD", "현재가USD", "목표비중%", "매수금액", "평가금액"]
+        ["구분", "증권사", "종목명", "수량", "매수가USD", "현재가USD", "목표비중%", "통화", "현금금액", "평가금액USD"]
       ];
 
-      items.forEach(item => {
+      stocks.forEach(item => {
         rows.push([
+          "주식",
+          item.broker,
           item.name,
           item.qty,
           item.buy,
           item.now,
           item.target,
-          item.qty * item.buy,
+          "",
+          "",
           item.qty * item.now
+        ]);
+      });
+
+      cash.forEach(item => {
+        rows.push([
+          "현금",
+          item.broker,
+          "",
+          "",
+          "",
+          "",
+          "",
+          item.currency,
+          item.amount,
+          convertCashToUSD(item.amount, item.currency)
         ]);
       });
 
@@ -600,7 +919,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "stock-portfolio-v3.csv";
+      a.download = "stock-portfolio-v4.csv";
       a.click();
       URL.revokeObjectURL(url);
     }
