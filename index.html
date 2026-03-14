@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>주식 포트폴리오</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f7fb;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 10px;
+      text-align: left;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #111827;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    .result {
+      font-size: 18px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    .small {
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>주식 포트폴리오</h1>
+    <p class="small">보유 종목, 수량, 매수가를 입력해서 간단한 포트폴리오를 관리해보세요.</p>
+
+    <div class="card">
+      <h2>종목 입력</h2>
+      <table id="portfolioTable">
+        <thead>
+          <tr>
+            <th>종목명</th>
+            <th>수량</th>
+            <th>매수가</th>
+            <th>현재가</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><input type="text" value="VOO"></td>
+            <td><input type="number" value="10"></td>
+            <td><input type="number" value="500"></td>
+            <td><input type="number" value="530"></td>
+          </tr>
+          <tr>
+            <td><input type="text" value="QQQ"></td>
+            <td><input type="number" value="5"></td>
+            <td><input type="number" value="450"></td>
+            <td><input type="number" value="470"></td>
+          </tr>
+        </tbody>
+      </table>
+      <br>
+      <button onclick="addRow()">행 추가</button>
+      <button onclick="calculatePortfolio()">계산하기</button>
+    </div>
+
+    <div class="card">
+      <h2>결과</h2>
+      <div id="output" class="result">아직 계산 전입니다.</div>
+    </div>
+  </div>
+
+  <script>
+    function addRow() {
+      const tbody = document.querySelector("#portfolioTable tbody");
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td><input type="text" value=""></td>
+        <td><input type="number" value="0"></td>
+        <td><input type="number" value="0"></td>
+        <td><input type="number" value="0"></td>
+      `;
+      tbody.appendChild(row);
+    }
+
+    function calculatePortfolio() {
+      const rows = document.querySelectorAll("#portfolioTable tbody tr");
+      let totalBuy = 0;
+      let totalNow = 0;
+
+      rows.forEach(row => {
+        const inputs = row.querySelectorAll("input");
+        const name = inputs[0].value;
+        const qty = Number(inputs[1].value);
+        const buy = Number(inputs[2].value);
+        const now = Number(inputs[3].value);
+
+        totalBuy += qty * buy;
+        totalNow += qty * now;
+      });
+
+      const profit = totalNow - totalBuy;
+      const rate = totalBuy === 0 ? 0 : (profit / totalBuy) * 100;
+
+      document.getElementById("output").innerHTML = `
+        총 매수금액: $${totalBuy.toLocaleString()}<br>
+        총 평가금액: $${totalNow.toLocaleString()}<br>
+        평가손익: $${profit.toLocaleString()}<br>
+        수익률: ${rate.toFixed(2)}%
+      `;
+    }
+  </script>
+</body>
+</html>
