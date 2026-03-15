@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>투자 포트폴리오 V16</title>
+<title>투자 포트폴리오 V15</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -11,12 +11,7 @@
 body{
 font-family:Arial;
 background:#f5f6fa;
-margin:0;
 padding:20px;
-}
-
-h1{
-margin-top:0;
 }
 
 .card{
@@ -24,7 +19,6 @@ background:white;
 padding:20px;
 margin-bottom:20px;
 border-radius:10px;
-box-shadow:0 2px 5px rgba(0,0,0,0.1);
 }
 
 input,select{
@@ -34,7 +28,6 @@ margin:5px;
 
 button{
 padding:8px 12px;
-margin:5px;
 cursor:pointer;
 }
 
@@ -46,7 +39,6 @@ border-collapse:collapse;
 th,td{
 padding:8px;
 border-bottom:1px solid #ddd;
-text-align:left;
 }
 
 </style>
@@ -54,11 +46,11 @@ text-align:left;
 
 <body>
 
-<h1>투자 포트폴리오</h1>
+<h1>투자 포트폴리오 V15</h1>
 
 <div class="card">
 
-<h2>종목 추가</h2>
+<h2>종목 입력</h2>
 
 <input id="symbol" placeholder="종목코드">
 
@@ -81,19 +73,12 @@ text-align:left;
 <thead>
 
 <tr>
-
 <th>종목</th>
-
 <th>수량</th>
-
 <th>현재가</th>
-
 <th>평가금</th>
-
 <th>손익</th>
-
 <th>관리</th>
-
 </tr>
 
 </thead>
@@ -104,21 +89,104 @@ text-align:left;
 
 </div>
 
+<script>
+
+let stocks=[]
+  <!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>투자 포트폴리오 V15</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+font-family:Arial;
+background:#f5f6fa;
+padding:20px;
+}
+
+.card{
+background:white;
+padding:20px;
+margin-bottom:20px;
+border-radius:10px;
+}
+
+input,select{
+padding:8px;
+margin:5px;
+}
+
+button{
+padding:8px 12px;
+cursor:pointer;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th,td{
+padding:8px;
+border-bottom:1px solid #ddd;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>투자 포트폴리오 V15</h1>
+
 <div class="card">
 
-<h2>분석</h2>
+<h2>종목 입력</h2>
 
-<h3>월별 자산 성장</h3>
+<input id="symbol" placeholder="종목코드">
 
-<canvas id="growthChart"></canvas>
+<input id="qty" type="number" placeholder="수량">
+
+<input id="price" type="number" placeholder="현재가">
+
+<input id="buy" type="number" placeholder="총 매수금액">
+
+<button onclick="addStock()">추가</button>
+
+</div>
+
+<div class="card">
+
+<h2>보유 종목</h2>
+
+<table>
+
+<thead>
+
+<tr>
+<th>종목</th>
+<th>수량</th>
+<th>현재가</th>
+<th>평가금</th>
+<th>손익</th>
+<th>관리</th>
+</tr>
+
+</thead>
+
+<tbody id="tableBody"></tbody>
+
+</table>
 
 </div>
 
 <script>
 
 let stocks=[]
-
-function addStock(){
+  function addStock(){
 
 const symbol=document.getElementById("symbol").value
 const qty=parseFloat(document.getElementById("qty").value)
@@ -147,19 +215,13 @@ body.innerHTML+=`
 <tr>
 
 <td>${s.symbol}</td>
-
 <td>${s.qty}</td>
-
 <td>${s.price}</td>
-
 <td>${value.toFixed(0)}</td>
-
 <td>${profit.toFixed(0)}</td>
 
 <td>
-
 <button onclick="removeStock(${i})">삭제</button>
-
 </td>
 
 </tr>
@@ -168,119 +230,12 @@ body.innerHTML+=`
 
 })
 
-saveSnapshot()
-
 }
-  function removeStock(i){
+
+function removeStock(i){
 
 stocks.splice(i,1)
 
 render()
 
 }
-
-function totalAsset(){
-
-let sum=0
-
-stocks.forEach(s=>{
-
-sum+=s.qty*s.price
-
-})
-
-return sum
-
-}
-
-function saveSnapshot(){
-
-const history=JSON.parse(localStorage.getItem("history")||"[]")
-
-history.push({
-
-date:new Date().toISOString(),
-
-asset:totalAsset()
-
-})
-
-localStorage.setItem("history",JSON.stringify(history))
-
-renderGrowthChart(history)
-
-}
-
-function renderGrowthChart(history){
-
-const monthMap={}
-
-history.forEach(h=>{
-
-const date=new Date(h.date)
-
-const key=date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0")
-
-monthMap[key]=h.asset
-
-})
-
-const labels=Object.keys(monthMap).sort()
-
-const data=labels.map(m=>monthMap[m])
-
-const ctx=document.getElementById("growthChart")
-
-if(window.chart){
-
-window.chart.destroy()
-
-}
-
-window.chart=new Chart(ctx,{
-
-type:"line",
-
-data:{
-
-labels:labels,
-
-datasets:[
-
-{
-
-label:"총자산",
-
-data:data,
-
-tension:0.3
-
-}
-
-]
-
-},
-
-options:{
-
-responsive:true
-
-}
-
-})
-
-}
-  function loadHistory(){
-
-const history=JSON.parse(localStorage.getItem("history")||"[]")
-
-renderGrowthChart(history)
-
-}
-
-loadHistory()
-
-</script>
-
-</body>
-</html>
