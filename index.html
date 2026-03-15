@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>투자 포트폴리오 V11</title>
+  <title>투자 포트폴리오 V12</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -14,18 +14,10 @@
       background: #f5f7fb;
       color: #111827;
     }
-    .container {
-      max-width: 1320px;
-      margin: 0 auto;
-    }
-    h1 {
-      margin: 0 0 8px;
-      font-size: 30px;
-    }
-    .sub {
-      color: #6b7280;
-      margin-bottom: 20px;
-    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    .sub { color: #6b7280; margin-bottom: 20px; }
+
     .card {
       background: #fff;
       border-radius: 16px;
@@ -33,16 +25,16 @@
       margin-bottom: 20px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.08);
     }
-    h2 {
-      margin: 0 0 14px;
-      font-size: 22px;
-    }
+
+    h2 { margin: 0 0 14px; font-size: 22px; }
+
     label {
       display: block;
       font-size: 13px;
       color: #4b5563;
       margin-bottom: 6px;
     }
+
     input, select {
       width: 100%;
       padding: 10px 12px;
@@ -94,6 +86,7 @@
       grid-template-columns: repeat(6, 1fr);
       gap: 12px;
     }
+
     .metric {
       background: #f9fafb;
       border: 1px solid #e5e7eb;
@@ -135,14 +128,6 @@
       flex-wrap: wrap;
     }
 
-    .user-badge {
-      background: #eef2ff;
-      color: #3730a3;
-      border-radius: 999px;
-      padding: 8px 12px;
-      font-size: 13px;
-    }
-
     table {
       width: 100%;
       border-collapse: collapse;
@@ -160,9 +145,14 @@
       background: #f9fafb;
       color: #374151;
       font-size: 13px;
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
+
     .table-wrap {
       overflow-x: auto;
+      max-height: 560px;
     }
 
     .pill {
@@ -192,27 +182,36 @@
       align-items: center;
     }
 
-    canvas {
-      max-height: 320px;
+    .toolbar {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 12px;
     }
 
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 12px;
+    }
+
+    canvas { max-height: 320px; }
+
     @media (max-width: 1100px) {
-      .grid-2, .grid-3, .grid-4, .grid-5, .grid-6, .summary {
+      .grid-2, .grid-3, .grid-4, .grid-5, .grid-6, .summary, .toolbar {
         grid-template-columns: 1fr;
       }
-      body {
-        padding: 12px;
-      }
-      .login-box {
-        align-items: flex-start;
-      }
+      body { padding: 12px; }
+      .login-box { align-items: flex-start; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>투자 포트폴리오 V11</h1>
-    <div class="sub">Google 로그인 버전. PC Edge / 휴대폰 Chrome / 삼성 인터넷에서 같은 계정으로 같은 데이터가 보입니다.</div>
+    <h1>투자 포트폴리오 V12</h1>
+    <div class="sub">Google 로그인 + 자동 현재가 업데이트 + 많은 종목용 검색/정렬/필터 버전</div>
 
     <div class="card">
       <h2>로그인</h2>
@@ -253,7 +252,7 @@
     </div>
 
     <div class="card">
-      <h2>종목 입력 <span class="pill">소수점 매수 대응</span></h2>
+      <h2>종목 입력 <span class="pill">소수점 + 자동현재가</span></h2>
       <div class="grid-6">
         <div>
           <label for="broker">증권사</label>
@@ -262,6 +261,14 @@
         <div>
           <label for="symbol">종목명</label>
           <input id="symbol" type="text" placeholder="예: JEPI" />
+        </div>
+        <div>
+          <label for="assetType">자산 구분</label>
+          <select id="assetType">
+            <option value="ETF">ETF</option>
+            <option value="STOCK">개별주</option>
+            <option value="OTHER">기타</option>
+          </select>
         </div>
         <div>
           <label for="currency">통화</label>
@@ -281,13 +288,9 @@
             <option value="avgPrice">주당 매수가 입력</option>
           </select>
         </div>
-        <div>
-          <label for="currentPrice">현재가</label>
-          <input id="currentPrice" type="number" step="any" placeholder="예: 56.56" />
-        </div>
       </div>
 
-      <div class="grid-2" style="margin-top:12px;">
+      <div class="grid-3" style="margin-top:12px;">
         <div>
           <label for="totalBuyAmount">총 매수금액</label>
           <input id="totalBuyAmount" type="number" step="any" placeholder="예: 278.1869" />
@@ -296,14 +299,18 @@
           <label for="avgPrice">주당 매수가</label>
           <input id="avgPrice" type="number" step="any" placeholder="예: 55.51" />
         </div>
-      </div>
-
-      <div class="small" style="margin-top:10px;">
-        토스증권처럼 평균단가가 없으면 총 매수금액만 입력하면 됩니다.
+        <div>
+          <label for="currentPrice">현재가</label>
+          <input id="currentPrice" type="number" step="any" placeholder="예: 56.56" />
+        </div>
       </div>
 
       <div class="btn-row">
+        <button id="fetchPriceBtn" class="light" disabled>현재가 자동 가져오기</button>
         <button id="saveHoldingBtn" disabled>종목 저장</button>
+      </div>
+      <div class="small" style="margin-top:10px;">
+        미국 티커 예: JEPI, VOO, QQQ, NVDA, GOOGL
       </div>
     </div>
 
@@ -344,22 +351,60 @@
     </div>
 
     <div class="card">
-      <h2>증권사별 자산 비중</h2>
-      <canvas id="brokerChart"></canvas>
+      <h2>분석</h2>
+      <div class="grid-2">
+        <div>
+          <h3 style="margin-top:0;">증권사별 자산 비중</h3>
+          <canvas id="brokerChart"></canvas>
+        </div>
+        <div>
+          <h3 style="margin-top:0;">ETF / 개별주 비중</h3>
+          <canvas id="assetTypeChart"></canvas>
+        </div>
+      </div>
     </div>
 
     <div class="card">
-      <h2>보유 종목</h2>
-      <div class="small">같은 Google 계정이면 어떤 기기에서 열어도 같은 데이터가 나옵니다.</div>
+      <h2>보유 종목 관리</h2>
+      <div class="toolbar">
+        <div>
+          <label for="searchText">검색</label>
+          <input id="searchText" type="text" placeholder="종목명 또는 증권사 검색" />
+        </div>
+        <div>
+          <label for="filterType">자산 구분 필터</label>
+          <select id="filterType">
+            <option value="ALL">전체</option>
+            <option value="ETF">ETF</option>
+            <option value="STOCK">개별주</option>
+            <option value="OTHER">기타</option>
+          </select>
+        </div>
+        <div>
+          <label for="sortBy">정렬</label>
+          <select id="sortBy">
+            <option value="createdDesc">최근 추가순</option>
+            <option value="profitDesc">손익 큰 순</option>
+            <option value="weightDesc">비중 큰 순</option>
+            <option value="valueDesc">평가금 큰 순</option>
+            <option value="nameAsc">종목명 가나다/알파벳 순</option>
+          </select>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="refreshAllPricesBtn" class="light" disabled>전체 현재가 새로고침</button>
+        </div>
+      </div>
+
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>증권사</th>
               <th>종목</th>
+              <th>구분</th>
               <th>통화</th>
               <th>수량</th>
-              <th>입력방식</th>
               <th>총 매수금액</th>
               <th>주당 매수가</th>
               <th>현재가</th>
@@ -391,6 +436,7 @@
       getFirestore,
       doc,
       setDoc,
+      updateDoc,
       getDoc,
       collection,
       addDoc,
@@ -426,6 +472,7 @@
     let uid = null;
     let holdings = [];
     let brokerChart = null;
+    let assetTypeChart = null;
 
     const statusEl = document.getElementById("status");
     const userInfoEl = document.getElementById("userInfo");
@@ -436,6 +483,7 @@
 
     const brokerEl = document.getElementById("broker");
     const symbolEl = document.getElementById("symbol");
+    const assetTypeEl = document.getElementById("assetType");
     const currencyEl = document.getElementById("currency");
     const sharesEl = document.getElementById("shares");
     const inputModeEl = document.getElementById("inputMode");
@@ -443,9 +491,15 @@
     const avgPriceEl = document.getElementById("avgPrice");
     const currentPriceEl = document.getElementById("currentPrice");
 
+    const searchTextEl = document.getElementById("searchText");
+    const filterTypeEl = document.getElementById("filterType");
+    const sortByEl = document.getElementById("sortBy");
+
     const saveCashBtn = document.getElementById("saveCashBtn");
     const saveHoldingBtn = document.getElementById("saveHoldingBtn");
     const saveSnapshotBtn = document.getElementById("saveSnapshotBtn");
+    const fetchPriceBtn = document.getElementById("fetchPriceBtn");
+    const refreshAllPricesBtn = document.getElementById("refreshAllPricesBtn");
     const loginBtn = document.getElementById("loginBtn");
     const logoutBtn = document.getElementById("logoutBtn");
 
@@ -457,6 +511,8 @@
       saveCashBtn.disabled = !enabled;
       saveHoldingBtn.disabled = !enabled;
       saveSnapshotBtn.disabled = !enabled;
+      fetchPriceBtn.disabled = !enabled;
+      refreshAllPricesBtn.disabled = !enabled;
     }
 
     function toKRW(value, currency, rate) {
@@ -487,12 +543,66 @@
     }
 
     function getDerivedAvgPrice(item) {
-      if (item.inputMode === "avgPrice") {
-        return Number(item.avgPrice || 0);
-      }
+      if (item.inputMode === "avgPrice") return Number(item.avgPrice || 0);
       const shares = Number(item.shares || 0);
       if (shares === 0) return 0;
       return Number(item.totalBuyAmount || 0) / shares;
+    }
+
+    function getFilteredSortedHoldings() {
+      const rate = Number(exchangeRateEl.value || 1350);
+      const search = searchTextEl.value.trim().toLowerCase();
+      const filterType = filterTypeEl.value;
+      const sortBy = sortByEl.value;
+
+      let list = [...holdings];
+
+      if (search) {
+        list = list.filter(item =>
+          String(item.symbol || "").toLowerCase().includes(search) ||
+          String(item.broker || "").toLowerCase().includes(search)
+        );
+      }
+
+      if (filterType !== "ALL") {
+        list = list.filter(item => item.assetType === filterType);
+      }
+
+      list.sort((a, b) => {
+        const aBuy = getDerivedTotalBuy(a);
+        const bBuy = getDerivedTotalBuy(b);
+        const aNow = Number(a.shares || 0) * Number(a.currentPrice || 0);
+        const bNow = Number(b.shares || 0) * Number(b.currentPrice || 0);
+        const aProfit = aNow - aBuy;
+        const bProfit = bNow - bBuy;
+        const aWeight = toKRW(aNow, a.currency, rate);
+        const bWeight = toKRW(bNow, b.currency, rate);
+
+        if (sortBy === "profitDesc") return bProfit - aProfit;
+        if (sortBy === "weightDesc") return bWeight - aWeight;
+        if (sortBy === "valueDesc") return bNow - aNow;
+        if (sortBy === "nameAsc") return String(a.symbol || "").localeCompare(String(b.symbol || ""));
+        return 0;
+      });
+
+      if (sortBy === "createdDesc") {
+        list.sort((a, b) => {
+          const at = a.createdAt?.seconds || 0;
+          const bt = b.createdAt?.seconds || 0;
+          return bt - at;
+        });
+      }
+
+      return list;
+    }
+
+    async function fetchQuote(symbol) {
+      const response = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`);
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "현재가 조회 실패");
+      }
+      return response.json();
     }
 
     async function loadCurrent() {
@@ -526,6 +636,7 @@
       renderHoldings();
       renderSummary();
       renderBrokerChart();
+      renderAssetTypeChart();
     }
 
     async function loadHistory() {
@@ -587,6 +698,7 @@
       try {
         const broker = brokerEl.value.trim();
         const symbol = symbolEl.value.trim().toUpperCase();
+        const assetType = assetTypeEl.value;
         const currency = currencyEl.value;
         const shares = Number(sharesEl.value || 0);
         const inputMode = inputModeEl.value;
@@ -594,32 +706,18 @@
         const avgPrice = Number(avgPriceEl.value || 0);
         const currentPrice = Number(currentPriceEl.value || 0);
 
-        if (!symbol) {
-          alert("종목명을 입력하세요.");
-          return;
-        }
-        if (shares <= 0) {
-          alert("보유 수량을 입력하세요.");
-          return;
-        }
-        if (currentPrice <= 0) {
-          alert("현재가를 입력하세요.");
-          return;
-        }
-        if (inputMode === "totalBuy" && totalBuyAmount <= 0) {
-          alert("총 매수금액을 입력하세요.");
-          return;
-        }
-        if (inputMode === "avgPrice" && avgPrice <= 0) {
-          alert("주당 매수가를 입력하세요.");
-          return;
-        }
+        if (!symbol) return alert("종목명을 입력하세요.");
+        if (shares <= 0) return alert("보유 수량을 입력하세요.");
+        if (currentPrice <= 0) return alert("현재가를 입력하세요.");
+        if (inputMode === "totalBuy" && totalBuyAmount <= 0) return alert("총 매수금액을 입력하세요.");
+        if (inputMode === "avgPrice" && avgPrice <= 0) return alert("주당 매수가를 입력하세요.");
 
         await addDoc(
           collection(db, "users", uid, "portfolio", "current", "holdings"),
           {
             broker,
             symbol,
+            assetType,
             currency,
             shares,
             inputMode,
@@ -637,6 +735,7 @@
         avgPriceEl.value = "";
         currentPriceEl.value = "";
         currencyEl.value = "USD";
+        assetTypeEl.value = "ETF";
         inputModeEl.value = "totalBuy";
 
         setStatus("종목 저장 완료");
@@ -684,6 +783,64 @@
         console.error(error);
         setStatus("저장 이력 생성 실패: " + error.message);
         alert("저장 이력 생성 실패: " + error.message);
+      }
+    }
+
+    async function fetchCurrentPriceForInput() {
+      try {
+        const symbol = symbolEl.value.trim().toUpperCase();
+        if (!symbol) return alert("종목명을 먼저 입력하세요.");
+
+        setStatus(`${symbol} 현재가 조회 중...`);
+        const data = await fetchQuote(symbol);
+
+        if (!data.currentPrice || data.currentPrice <= 0) {
+          throw new Error("현재가를 찾지 못했습니다.");
+        }
+
+        currentPriceEl.value = data.currentPrice;
+        currencyEl.value = "USD";
+        setStatus(`${symbol} 현재가 업데이트 완료`);
+      } catch (error) {
+        console.error(error);
+        setStatus("현재가 조회 실패: " + error.message);
+        alert("현재가 조회 실패: " + error.message);
+      }
+    }
+
+    async function refreshAllPrices() {
+      try {
+        const usdItems = holdings.filter(item => item.currency === "USD" && item.symbol);
+        if (usdItems.length === 0) {
+          return alert("자동 업데이트 가능한 USD 종목이 없습니다.");
+        }
+
+        setStatus(`전체 현재가 새로고침 중... (${usdItems.length}개)`);
+
+        for (const item of usdItems) {
+          try {
+            const data = await fetchQuote(item.symbol);
+            if (data.currentPrice > 0) {
+              await updateDoc(
+                doc(db, "users", uid, "portfolio", "current", "holdings", item.id),
+                {
+                  currentPrice: data.currentPrice,
+                  updatedAt: serverTimestamp()
+                }
+              );
+            }
+          } catch (err) {
+            console.error(item.symbol, err);
+          }
+        }
+
+        await loadHoldings();
+        setStatus("전체 현재가 새로고침 완료");
+        alert("전체 현재가 새로고침 완료");
+      } catch (error) {
+        console.error(error);
+        setStatus("전체 현재가 새로고침 실패: " + error.message);
+        alert("전체 현재가 새로고침 실패: " + error.message);
       }
     }
 
@@ -757,18 +914,19 @@
       const tbody = document.getElementById("holdingsTable");
       tbody.innerHTML = "";
 
-      if (holdings.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="13">저장된 종목이 없습니다.</td></tr>`;
+      const list = getFilteredSortedHoldings();
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="13">표시할 종목이 없습니다.</td></tr>`;
         return;
       }
 
       const rate = Number(exchangeRateEl.value || 1350);
-      const totalNowKRW = holdings.reduce((sum, item) => {
+      const totalNowKRW = list.reduce((sum, item) => {
         const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
         return sum + toKRW(nowTotal, item.currency, rate);
       }, 0);
 
-      holdings.forEach((item) => {
+      list.forEach((item) => {
         const totalBuy = getDerivedTotalBuy(item);
         const avgPrice = getDerivedAvgPrice(item);
         const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
@@ -780,9 +938,9 @@
         row.innerHTML = `
           <td>${item.broker || "-"}</td>
           <td>${item.symbol}</td>
+          <td><span class="badge">${item.assetType || "OTHER"}</span></td>
           <td>${item.currency}</td>
           <td>${Number(item.shares).toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
-          <td>${item.inputMode === "totalBuy" ? "총매수금액" : "주당매수가"}</td>
           <td>${moneyByCurrency(totalBuy, item.currency)}</td>
           <td>${moneyByCurrency(avgPrice, item.currency)}</td>
           <td>${moneyByCurrency(item.currentPrice, item.currency)}</td>
@@ -796,6 +954,7 @@
           <td>${weight.toFixed(2)}%</td>
           <td><button class="danger">삭제</button></td>
         `;
+
         row.querySelector("button").addEventListener("click", () => deleteHolding(item.id));
         tbody.appendChild(row);
       });
@@ -821,32 +980,57 @@
       if (data.length === 0) {
         brokerChart = new Chart(ctx, {
           type: "doughnut",
-          data: {
-            labels: ["데이터 없음"],
-            datasets: [{ data: [1] }]
-          }
+          data: { labels: ["데이터 없음"], datasets: [{ data: [1] }] }
         });
         return;
       }
 
       brokerChart = new Chart(ctx, {
         type: "doughnut",
-        data: {
-          labels,
-          datasets: [{ data }]
-        },
+        data: { labels, datasets: [{ data }] },
         options: {
           responsive: true,
-          plugins: {
-            legend: { position: "bottom" }
-          }
+          plugins: { legend: { position: "bottom" } }
+        }
+      });
+    }
+
+    function renderAssetTypeChart() {
+      const rate = Number(exchangeRateEl.value || 1350);
+      const typeMap = { ETF: 0, STOCK: 0, OTHER: 0 };
+
+      holdings.forEach((item) => {
+        const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
+        const nowKRW = toKRW(nowTotal, item.currency, rate);
+        typeMap[item.assetType || "OTHER"] = (typeMap[item.assetType || "OTHER"] || 0) + nowKRW;
+      });
+
+      const labels = Object.keys(typeMap).filter(k => typeMap[k] > 0);
+      const data = labels.map(k => typeMap[k]);
+      const ctx = document.getElementById("assetTypeChart");
+
+      if (assetTypeChart) assetTypeChart.destroy();
+
+      if (data.length === 0) {
+        assetTypeChart = new Chart(ctx, {
+          type: "pie",
+          data: { labels: ["데이터 없음"], datasets: [{ data: [1] }] }
+        });
+        return;
+      }
+
+      assetTypeChart = new Chart(ctx, {
+        type: "pie",
+        data: { labels, datasets: [{ data }] },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: "bottom" } }
         }
       });
     }
 
     function updateModeUI() {
       const mode = inputModeEl.value;
-
       if (mode === "totalBuy") {
         totalBuyAmountEl.disabled = false;
         avgPriceEl.disabled = true;
@@ -881,15 +1065,21 @@
     saveCashBtn.addEventListener("click", saveCash);
     saveHoldingBtn.addEventListener("click", saveHolding);
     saveSnapshotBtn.addEventListener("click", saveSnapshot);
+    fetchPriceBtn.addEventListener("click", fetchCurrentPriceForInput);
+    refreshAllPricesBtn.addEventListener("click", refreshAllPrices);
 
     inputModeEl.addEventListener("change", updateModeUI);
     exchangeRateEl.addEventListener("input", () => {
       renderHoldings();
       renderSummary();
       renderBrokerChart();
+      renderAssetTypeChart();
     });
     cashAmountEl.addEventListener("input", renderSummary);
     cashCurrencyEl.addEventListener("change", renderSummary);
+    searchTextEl.addEventListener("input", renderHoldings);
+    filterTypeEl.addEventListener("change", renderHoldings);
+    sortByEl.addEventListener("change", renderHoldings);
 
     onAuthStateChanged(auth, async (user) => {
       try {
@@ -913,6 +1103,7 @@
           document.getElementById("historyList").innerHTML = `<div class="small">로그인 후 이력이 표시됩니다.</div>`;
           renderSummary();
           renderBrokerChart();
+          renderAssetTypeChart();
         }
       } catch (error) {
         console.error(error);
