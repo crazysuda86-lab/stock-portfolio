@@ -1379,6 +1379,47 @@
         setStatus("초기화 실패: " + error.message);
       }
     });
+    function renderGrowthChart(history) {
+
+  const monthMap = {}
+
+  history.forEach(h => {
+
+    if (!h.createdText) return
+
+    const date = new Date(h.createdText)
+    const key = date.getFullYear() + "-" + String(date.getMonth()+1).padStart(2,"0")
+
+    monthMap[key] = h.totalAssetKRW
+  })
+
+  const labels = Object.keys(monthMap).sort()
+  const data = labels.map(m => monthMap[m])
+
+  const ctx = document.getElementById("growthChart")
+
+  if (!ctx) return
+
+  if (window.growthChart) window.growthChart.destroy()
+
+  window.growthChart = new Chart(ctx,{
+    type:"line",
+    data:{
+      labels:labels,
+      datasets:[{
+        label:"총자산",
+        data:data,
+        tension:0.3
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{position:"bottom"}
+      }
+    }
+  })
+}
   </script>
 </body>
 </html>
