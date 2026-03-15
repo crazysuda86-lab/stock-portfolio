@@ -1,36 +1,1195 @@
-export default async function handler(req, res) {
-  try {
-    const symbol = String(req.query.symbol || "").trim().toUpperCase();
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>투자 포트폴리오 V13</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      color: #111827;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    .sub { color: #6b7280; margin-bottom: 20px; }
 
-    if (!symbol) {
-      return res.status(400).json({ error: "symbol is required" });
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
     }
 
-    const apiKey = process.env.FINNHUB_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: "Missing FINNHUB_API_KEY" });
+    h2 { margin: 0 0 14px; font-size: 22px; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #4b5563;
+      margin-bottom: 6px;
     }
 
-    const response = await fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`
-    );
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: "Failed to fetch quote" });
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 14px;
+      background: #fff;
     }
 
-    const data = await response.json();
+    .grid-2, .grid-3, .grid-4, .grid-5, .grid-6 {
+      display: grid;
+      gap: 12px;
+    }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-5 { grid-template-columns: repeat(5, 1fr); }
+    .grid-6 { grid-template-columns: repeat(6, 1fr); }
 
-    return res.status(200).json({
-      symbol,
-      currentPrice: Number(data.c || 0),
-      previousClose: Number(data.pc || 0),
-      change: Number(data.d || 0),
-      changePercent: Number(data.dp || 0)
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #111827;
+      color: white;
+    }
+    button.light {
+      background: #e5e7eb;
+      color: #111827;
+    }
+    button.danger {
+      background: #dc2626;
+    }
+    button.google {
+      background: #2563eb;
+    }
+    button.warn {
+      background: #d97706;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+    }
+
+    .metric {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .metric .label {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+    .metric .value {
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .metric .subvalue {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+
+    .plus { color: #047857; }
+    .minus { color: #b91c1c; }
+
+    .status, .small {
+      color: #4b5563;
+      font-size: 14px;
+    }
+    .small {
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .login-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .edit-banner {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: 14px;
+      display: none;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    th {
+      background: #f9fafb;
+      color: #374151;
+      font-size: 13px;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      max-height: 560px;
+    }
+
+    .pill {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: #eef2ff;
+      color: #3730a3;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .history-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fafafa;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 12px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 12px;
+    }
+
+    .action-cell {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    canvas { max-height: 320px; }
+
+    @media (max-width: 1100px) {
+      .grid-2, .grid-3, .grid-4, .grid-5, .grid-6, .summary, .toolbar {
+        grid-template-columns: 1fr;
+      }
+      body { padding: 12px; }
+      .login-box { align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>투자 포트폴리오 V13</h1>
+    <div class="sub">Google 로그인 + 자동 현재가 + 종목 편집 기능 버전</div>
+
+    <div class="card">
+      <h2>로그인</h2>
+      <div class="login-box">
+        <div>
+          <div id="status" class="status">초기화 중...</div>
+          <div id="userInfo" class="small" style="margin-top:8px;">로그인 안됨</div>
+        </div>
+        <div class="btn-row">
+          <button id="loginBtn" class="google">Google 로그인</button>
+          <button id="logoutBtn" class="light">로그아웃</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>기본 설정</h2>
+      <div class="grid-3">
+        <div>
+          <label for="exchangeRate">환율 (1 USD = KRW)</label>
+          <input id="exchangeRate" type="number" value="1350" />
+        </div>
+        <div>
+          <label for="cashAmount">현금 금액</label>
+          <input id="cashAmount" type="number" step="any" placeholder="예: 1000000" />
+        </div>
+        <div>
+          <label for="cashCurrency">현금 통화</label>
+          <select id="cashCurrency">
+            <option value="KRW">KRW</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button id="saveCashBtn" disabled>현금 저장</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>종목 입력 <span class="pill">소수점 + 자동현재가 + 수정모드</span></h2>
+
+      <div id="editBanner" class="edit-banner">
+        현재 종목 수정 중입니다. 값을 바꾼 뒤 <strong>종목 수정 저장</strong>을 누르세요.
+      </div>
+
+      <div class="grid-6" style="margin-top:12px;">
+        <div>
+          <label for="broker">증권사</label>
+          <input id="broker" type="text" placeholder="예: 토스증권" />
+        </div>
+        <div>
+          <label for="symbol">종목명</label>
+          <input id="symbol" type="text" placeholder="예: JEPI" />
+        </div>
+        <div>
+          <label for="assetType">자산 구분</label>
+          <select id="assetType">
+            <option value="ETF">ETF</option>
+            <option value="STOCK">개별주</option>
+            <option value="OTHER">기타</option>
+          </select>
+        </div>
+        <div>
+          <label for="currency">통화</label>
+          <select id="currency">
+            <option value="USD">USD</option>
+            <option value="KRW">KRW</option>
+          </select>
+        </div>
+        <div>
+          <label for="shares">보유 수량</label>
+          <input id="shares" type="number" step="any" placeholder="예: 5.011473" />
+        </div>
+        <div>
+          <label for="inputMode">입력 방식</label>
+          <select id="inputMode">
+            <option value="totalBuy">총 매수금액 입력</option>
+            <option value="avgPrice">주당 매수가 입력</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-3" style="margin-top:12px;">
+        <div>
+          <label for="totalBuyAmount">총 매수금액</label>
+          <input id="totalBuyAmount" type="number" step="any" placeholder="예: 278.1869" />
+        </div>
+        <div>
+          <label for="avgPrice">주당 매수가</label>
+          <input id="avgPrice" type="number" step="any" placeholder="예: 55.51" />
+        </div>
+        <div>
+          <label for="currentPrice">현재가</label>
+          <input id="currentPrice" type="number" step="any" placeholder="예: 56.56" />
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button id="fetchPriceBtn" class="light" disabled>현재가 자동 가져오기</button>
+        <button id="saveHoldingBtn" disabled>종목 저장</button>
+        <button id="cancelEditBtn" class="warn" style="display:none;">수정 취소</button>
+      </div>
+
+      <div class="small" style="margin-top:10px;">
+        미국 티커 예: JEPI, VOO, QQQ, NVDA, GOOGL
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>요약</h2>
+      <div class="summary">
+        <div class="metric">
+          <div class="label">현금</div>
+          <div class="value" id="sumCashKRW">₩0</div>
+          <div class="subvalue" id="sumCashUSD">$0</div>
+        </div>
+        <div class="metric">
+          <div class="label">총 매수금액</div>
+          <div class="value" id="sumBuyKRW">₩0</div>
+          <div class="subvalue" id="sumBuyUSD">$0</div>
+        </div>
+        <div class="metric">
+          <div class="label">총 평가금액</div>
+          <div class="value" id="sumNowKRW">₩0</div>
+          <div class="subvalue" id="sumNowUSD">$0</div>
+        </div>
+        <div class="metric">
+          <div class="label">평가손익</div>
+          <div class="value" id="sumProfitKRW">₩0</div>
+          <div class="subvalue" id="sumProfitUSD">$0</div>
+        </div>
+        <div class="metric">
+          <div class="label">수익률</div>
+          <div class="value" id="sumRate">0.00%</div>
+          <div class="subvalue">총 매수금액 대비</div>
+        </div>
+        <div class="metric">
+          <div class="label">현금 포함 총 자산</div>
+          <div class="value" id="sumAssetKRW">₩0</div>
+          <div class="subvalue" id="sumAssetUSD">$0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>분석</h2>
+      <div class="grid-2">
+        <div>
+          <h3 style="margin-top:0;">증권사별 자산 비중</h3>
+          <canvas id="brokerChart"></canvas>
+        </div>
+        <div>
+          <h3 style="margin-top:0;">ETF / 개별주 비중</h3>
+          <canvas id="assetTypeChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>보유 종목 관리</h2>
+      <div class="toolbar">
+        <div>
+          <label for="searchText">검색</label>
+          <input id="searchText" type="text" placeholder="종목명 또는 증권사 검색" />
+        </div>
+        <div>
+          <label for="filterType">자산 구분 필터</label>
+          <select id="filterType">
+            <option value="ALL">전체</option>
+            <option value="ETF">ETF</option>
+            <option value="STOCK">개별주</option>
+            <option value="OTHER">기타</option>
+          </select>
+        </div>
+        <div>
+          <label for="sortBy">정렬</label>
+          <select id="sortBy">
+            <option value="createdDesc">최근 추가순</option>
+            <option value="profitDesc">손익 큰 순</option>
+            <option value="weightDesc">비중 큰 순</option>
+            <option value="valueDesc">평가금 큰 순</option>
+            <option value="nameAsc">종목명 가나다/알파벳 순</option>
+          </select>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="refreshAllPricesBtn" class="light" disabled>전체 현재가 새로고침</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>증권사</th>
+              <th>종목</th>
+              <th>구분</th>
+              <th>통화</th>
+              <th>수량</th>
+              <th>총 매수금액</th>
+              <th>주당 매수가</th>
+              <th>현재가</th>
+              <th>평가금액</th>
+              <th>손익</th>
+              <th>수익률</th>
+              <th>비중</th>
+              <th>관리</th>
+            </tr>
+          </thead>
+          <tbody id="holdingsTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>저장 이력</h2>
+      <div class="small">현재 상태를 Firebase 스냅샷으로 저장합니다.</div>
+      <div class="btn-row">
+        <button id="saveSnapshotBtn" disabled>현재 상태 저장 이력 남기기</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      updateDoc,
+      getDoc,
+      collection,
+      addDoc,
+      getDocs,
+      deleteDoc,
+      serverTimestamp,
+      query,
+      orderBy,
+      limit
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCDKxdfnyiG_6TToQXIP70x4os4Ky_7OTg",
+      authDomain: "stock-portfolio-e2d97.firebaseapp.com",
+      projectId: "stock-portfolio-e2d97",
+      storageBucket: "stock-portfolio-e2d97.firebasestorage.app",
+      messagingSenderId: "82473036597",
+      appId: "1:82473036597:web:98413d32ce2c3bc7d2fa7c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    let uid = null;
+    let holdings = [];
+    let brokerChart = null;
+    let assetTypeChart = null;
+    let editingHoldingId = null;
+
+    const statusEl = document.getElementById("status");
+    const userInfoEl = document.getElementById("userInfo");
+    const editBannerEl = document.getElementById("editBanner");
+
+    const exchangeRateEl = document.getElementById("exchangeRate");
+    const cashAmountEl = document.getElementById("cashAmount");
+    const cashCurrencyEl = document.getElementById("cashCurrency");
+
+    const brokerEl = document.getElementById("broker");
+    const symbolEl = document.getElementById("symbol");
+    const assetTypeEl = document.getElementById("assetType");
+    const currencyEl = document.getElementById("currency");
+    const sharesEl = document.getElementById("shares");
+    const inputModeEl = document.getElementById("inputMode");
+    const totalBuyAmountEl = document.getElementById("totalBuyAmount");
+    const avgPriceEl = document.getElementById("avgPrice");
+    const currentPriceEl = document.getElementById("currentPrice");
+
+    const searchTextEl = document.getElementById("searchText");
+    const filterTypeEl = document.getElementById("filterType");
+    const sortByEl = document.getElementById("sortBy");
+
+    const saveCashBtn = document.getElementById("saveCashBtn");
+    const saveHoldingBtn = document.getElementById("saveHoldingBtn");
+    const cancelEditBtn = document.getElementById("cancelEditBtn");
+    const saveSnapshotBtn = document.getElementById("saveSnapshotBtn");
+    const fetchPriceBtn = document.getElementById("fetchPriceBtn");
+    const refreshAllPricesBtn = document.getElementById("refreshAllPricesBtn");
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function enableAppControls(enabled) {
+      saveCashBtn.disabled = !enabled;
+      saveHoldingBtn.disabled = !enabled;
+      saveSnapshotBtn.disabled = !enabled;
+      fetchPriceBtn.disabled = !enabled;
+      refreshAllPricesBtn.disabled = !enabled;
+    }
+
+    function toKRW(value, currency, rate) {
+      return currency === "USD" ? value * rate : value;
+    }
+
+    function toUSD(value, currency, rate) {
+      return currency === "KRW" ? value / rate : value;
+    }
+
+    function moneyKRW(value) {
+      return "₩" + Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+    }
+
+    function moneyUSD(value) {
+      return "$" + Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 4 });
+    }
+
+    function moneyByCurrency(value, currency) {
+      return currency === "USD" ? moneyUSD(value) : moneyKRW(value);
+    }
+
+    function getDerivedTotalBuy(item) {
+      if (item.inputMode === "avgPrice") {
+        return Number(item.shares || 0) * Number(item.avgPrice || 0);
+      }
+      return Number(item.totalBuyAmount || 0);
+    }
+
+    function getDerivedAvgPrice(item) {
+      if (item.inputMode === "avgPrice") return Number(item.avgPrice || 0);
+      const shares = Number(item.shares || 0);
+      if (shares === 0) return 0;
+      return Number(item.totalBuyAmount || 0) / shares;
+    }
+
+    function resetHoldingForm() {
+      editingHoldingId = null;
+      brokerEl.value = "";
+      symbolEl.value = "";
+      assetTypeEl.value = "ETF";
+      currencyEl.value = "USD";
+      sharesEl.value = "";
+      inputModeEl.value = "totalBuy";
+      totalBuyAmountEl.value = "";
+      avgPriceEl.value = "";
+      currentPriceEl.value = "";
+      saveHoldingBtn.textContent = "종목 저장";
+      cancelEditBtn.style.display = "none";
+      editBannerEl.style.display = "none";
+      updateModeUI();
+    }
+
+    function startEditHolding(item) {
+      editingHoldingId = item.id;
+      brokerEl.value = item.broker || "";
+      symbolEl.value = item.symbol || "";
+      assetTypeEl.value = item.assetType || "ETF";
+      currencyEl.value = item.currency || "USD";
+      sharesEl.value = item.shares ?? "";
+      inputModeEl.value = item.inputMode || "totalBuy";
+      totalBuyAmountEl.value = item.totalBuyAmount ?? "";
+      avgPriceEl.value = item.avgPrice ?? "";
+      currentPriceEl.value = item.currentPrice ?? "";
+      saveHoldingBtn.textContent = "종목 수정 저장";
+      cancelEditBtn.style.display = "inline-block";
+      editBannerEl.style.display = "block";
+      updateModeUI();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setStatus(`${item.symbol} 수정 모드`);
+    }
+
+    function getFilteredSortedHoldings() {
+      const rate = Number(exchangeRateEl.value || 1350);
+      const search = searchTextEl.value.trim().toLowerCase();
+      const filterType = filterTypeEl.value;
+      const sortBy = sortByEl.value;
+
+      let list = [...holdings];
+
+      if (search) {
+        list = list.filter(item =>
+          String(item.symbol || "").toLowerCase().includes(search) ||
+          String(item.broker || "").toLowerCase().includes(search)
+        );
+      }
+
+      if (filterType !== "ALL") {
+        list = list.filter(item => item.assetType === filterType);
+      }
+
+      list.sort((a, b) => {
+        const aBuy = getDerivedTotalBuy(a);
+        const bBuy = getDerivedTotalBuy(b);
+        const aNow = Number(a.shares || 0) * Number(a.currentPrice || 0);
+        const bNow = Number(b.shares || 0) * Number(b.currentPrice || 0);
+        const aProfit = aNow - aBuy;
+        const bProfit = bNow - bBuy;
+        const aWeight = toKRW(aNow, a.currency, rate);
+        const bWeight = toKRW(bNow, b.currency, rate);
+
+        if (sortBy === "profitDesc") return bProfit - aProfit;
+        if (sortBy === "weightDesc") return bWeight - aWeight;
+        if (sortBy === "valueDesc") return bNow - aNow;
+        if (sortBy === "nameAsc") return String(a.symbol || "").localeCompare(String(b.symbol || ""));
+        return 0;
+      });
+
+      if (sortBy === "createdDesc") {
+        list.sort((a, b) => {
+          const at = a.createdAt?.seconds || 0;
+          const bt = b.createdAt?.seconds || 0;
+          return bt - at;
+        });
+      }
+
+      return list;
+    }
+
+    async function fetchQuote(symbol) {
+      const response = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`);
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "현재가 조회 실패");
+      }
+      return response.json();
+    }
+
+    async function loadCurrent() {
+      const ref = doc(db, "users", uid, "portfolio", "current");
+      const snap = await getDoc(ref);
+
+      if (snap.exists()) {
+        const data = snap.data();
+        exchangeRateEl.value = data.exchangeRate ?? 1350;
+        cashAmountEl.value = data.cashAmount ?? "";
+        cashCurrencyEl.value = data.cashCurrency ?? "KRW";
+      } else {
+        exchangeRateEl.value = 1350;
+        cashAmountEl.value = "";
+        cashCurrencyEl.value = "KRW";
+      }
+    }
+
+    async function loadHoldings() {
+      const ref = collection(db, "users", uid, "portfolio", "current", "holdings");
+      const snap = await getDocs(ref);
+
+      holdings = [];
+      snap.forEach((d) => {
+        holdings.push({
+          id: d.id,
+          ...d.data()
+        });
+      });
+
+      renderHoldings();
+      renderSummary();
+      renderBrokerChart();
+      renderAssetTypeChart();
+    }
+
+    async function loadHistory() {
+      const ref = collection(db, "users", uid, "portfolio", "current", "history");
+      const q = query(ref, orderBy("createdAt", "desc"), limit(10));
+      const snap = await getDocs(q);
+
+      const list = document.getElementById("historyList");
+      list.innerHTML = "";
+
+      if (snap.empty) {
+        list.innerHTML = `<div class="small">저장 이력이 없습니다.</div>`;
+        return;
+      }
+
+      snap.forEach((d) => {
+        const data = d.data();
+        const item = document.createElement("div");
+        item.className = "history-item";
+        item.innerHTML = `
+          <div>
+            <strong>${data.label || "저장 이력"}</strong><br>
+            <span class="small">총 자산: ${moneyKRW(data.totalAssetKRW || 0)} / ${moneyUSD(data.totalAssetUSD || 0)}</span>
+          </div>
+          <div class="small">${data.createdText || ""}</div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    async function saveCash() {
+      try {
+        const exchangeRate = Number(exchangeRateEl.value || 1350);
+        const cashAmount = Number(cashAmountEl.value || 0);
+        const cashCurrency = cashCurrencyEl.value;
+
+        await setDoc(
+          doc(db, "users", uid, "portfolio", "current"),
+          {
+            exchangeRate,
+            cashAmount,
+            cashCurrency,
+            updated: serverTimestamp()
+          },
+          { merge: true }
+        );
+
+        setStatus("현금 저장 완료");
+        alert("현금 저장 완료");
+        renderSummary();
+      } catch (error) {
+        console.error(error);
+        setStatus("현금 저장 실패: " + error.message);
+        alert("현금 저장 실패: " + error.message);
+      }
+    }
+
+    async function saveHolding() {
+      try {
+        const broker = brokerEl.value.trim();
+        const symbol = symbolEl.value.trim().toUpperCase();
+        const assetType = assetTypeEl.value;
+        const currency = currencyEl.value;
+        const shares = Number(sharesEl.value || 0);
+        const inputMode = inputModeEl.value;
+        const totalBuyAmount = Number(totalBuyAmountEl.value || 0);
+        const avgPrice = Number(avgPriceEl.value || 0);
+        const currentPrice = Number(currentPriceEl.value || 0);
+
+        if (!symbol) return alert("종목명을 입력하세요.");
+        if (shares <= 0) return alert("보유 수량을 입력하세요.");
+        if (currentPrice <= 0) return alert("현재가를 입력하세요.");
+        if (inputMode === "totalBuy" && totalBuyAmount <= 0) return alert("총 매수금액을 입력하세요.");
+        if (inputMode === "avgPrice" && avgPrice <= 0) return alert("주당 매수가를 입력하세요.");
+
+        const payload = {
+          broker,
+          symbol,
+          assetType,
+          currency,
+          shares,
+          inputMode,
+          totalBuyAmount: inputMode === "totalBuy" ? totalBuyAmount : shares * avgPrice,
+          avgPrice: inputMode === "avgPrice" ? avgPrice : (shares === 0 ? 0 : totalBuyAmount / shares),
+          currentPrice,
+          updatedAt: serverTimestamp()
+        };
+
+        if (editingHoldingId) {
+          await updateDoc(
+            doc(db, "users", uid, "portfolio", "current", "holdings", editingHoldingId),
+            payload
+          );
+          setStatus("종목 수정 완료");
+          alert("종목 수정 완료");
+        } else {
+          await addDoc(
+            collection(db, "users", uid, "portfolio", "current", "holdings"),
+            {
+              ...payload,
+              createdAt: serverTimestamp()
+            }
+          );
+          setStatus("종목 저장 완료");
+          alert("종목 저장 완료");
+        }
+
+        resetHoldingForm();
+        await loadHoldings();
+      } catch (error) {
+        console.error(error);
+        setStatus("종목 저장 실패: " + error.message);
+        alert("종목 저장 실패: " + error.message);
+      }
+    }
+
+    async function deleteHolding(id) {
+      try {
+        if (editingHoldingId === id) {
+          resetHoldingForm();
+        }
+        await deleteDoc(doc(db, "users", uid, "portfolio", "current", "holdings", id));
+        setStatus("종목 삭제 완료");
+        await loadHoldings();
+      } catch (error) {
+        console.error(error);
+        setStatus("종목 삭제 실패: " + error.message);
+        alert("종목 삭제 실패: " + error.message);
+      }
+    }
+
+    async function saveSnapshot() {
+      try {
+        const summary = getSummaryNumbers();
+
+        await addDoc(collection(db, "users", uid, "portfolio", "current", "history"), {
+          label: `스냅샷 ${new Date().toLocaleString("ko-KR")}`,
+          totalAssetKRW: summary.totalAssetKRW,
+          totalAssetUSD: summary.totalAssetUSD,
+          totalProfitKRW: summary.totalProfitKRW,
+          totalProfitUSD: summary.totalProfitUSD,
+          createdAt: serverTimestamp(),
+          createdText: new Date().toLocaleString("ko-KR")
+        });
+
+        setStatus("저장 이력 생성 완료");
+        alert("저장 이력 생성 완료");
+        await loadHistory();
+      } catch (error) {
+        console.error(error);
+        setStatus("저장 이력 생성 실패: " + error.message);
+        alert("저장 이력 생성 실패: " + error.message);
+      }
+    }
+
+    async function fetchCurrentPriceForInput() {
+      try {
+        const symbol = symbolEl.value.trim().toUpperCase();
+        if (!symbol) return alert("종목명을 먼저 입력하세요.");
+
+        setStatus(`${symbol} 현재가 조회 중...`);
+        const data = await fetchQuote(symbol);
+
+        if (!data.currentPrice || data.currentPrice <= 0) {
+          throw new Error("현재가를 찾지 못했습니다.");
+        }
+
+        currentPriceEl.value = data.currentPrice;
+        currencyEl.value = "USD";
+        setStatus(`${symbol} 현재가 업데이트 완료`);
+      } catch (error) {
+        console.error(error);
+        setStatus("현재가 조회 실패: " + error.message);
+        alert("현재가 조회 실패: " + error.message);
+      }
+    }
+
+    async function refreshAllPrices() {
+      try {
+        const usdItems = holdings.filter(item => item.currency === "USD" && item.symbol);
+        if (usdItems.length === 0) {
+          return alert("자동 업데이트 가능한 USD 종목이 없습니다.");
+        }
+
+        setStatus(`전체 현재가 새로고침 중... (${usdItems.length}개)`);
+
+        for (const item of usdItems) {
+          try {
+            const data = await fetchQuote(item.symbol);
+            if (data.currentPrice > 0) {
+              await updateDoc(
+                doc(db, "users", uid, "portfolio", "current", "holdings", item.id),
+                {
+                  currentPrice: data.currentPrice,
+                  updatedAt: serverTimestamp()
+                }
+              );
+            }
+          } catch (err) {
+            console.error(item.symbol, err);
+          }
+        }
+
+        await loadHoldings();
+        setStatus("전체 현재가 새로고침 완료");
+        alert("전체 현재가 새로고침 완료");
+      } catch (error) {
+        console.error(error);
+        setStatus("전체 현재가 새로고침 실패: " + error.message);
+        alert("전체 현재가 새로고침 실패: " + error.message);
+      }
+    }
+
+    function getSummaryNumbers() {
+      const rate = Number(exchangeRateEl.value || 1350);
+      const cashAmount = Number(cashAmountEl.value || 0);
+      const cashCurrency = cashCurrencyEl.value;
+
+      const cashKRW = toKRW(cashAmount, cashCurrency, rate);
+      const cashUSD = toUSD(cashAmount, cashCurrency, rate);
+
+      let totalBuyKRW = 0;
+      let totalNowKRW = 0;
+      let totalBuyUSD = 0;
+      let totalNowUSD = 0;
+
+      holdings.forEach((item) => {
+        const totalBuy = getDerivedTotalBuy(item);
+        const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
+
+        totalBuyKRW += toKRW(totalBuy, item.currency, rate);
+        totalNowKRW += toKRW(nowTotal, item.currency, rate);
+
+        totalBuyUSD += toUSD(totalBuy, item.currency, rate);
+        totalNowUSD += toUSD(nowTotal, item.currency, rate);
+      });
+
+      const totalProfitKRW = totalNowKRW - totalBuyKRW;
+      const totalProfitUSD = totalNowUSD - totalBuyUSD;
+      const totalRate = totalBuyKRW === 0 ? 0 : (totalProfitKRW / totalBuyKRW) * 100;
+
+      const totalAssetKRW = cashKRW + totalNowKRW;
+      const totalAssetUSD = cashUSD + totalNowUSD;
+
+      return {
+        cashKRW, cashUSD,
+        totalBuyKRW, totalBuyUSD,
+        totalNowKRW, totalNowUSD,
+        totalProfitKRW, totalProfitUSD,
+        totalRate,
+        totalAssetKRW, totalAssetUSD
+      };
+    }
+
+    function renderSummary() {
+      const s = getSummaryNumbers();
+
+      document.getElementById("sumCashKRW").textContent = moneyKRW(s.cashKRW);
+      document.getElementById("sumCashUSD").textContent = moneyUSD(s.cashUSD);
+
+      document.getElementById("sumBuyKRW").textContent = moneyKRW(s.totalBuyKRW);
+      document.getElementById("sumBuyUSD").textContent = moneyUSD(s.totalBuyUSD);
+
+      document.getElementById("sumNowKRW").textContent = moneyKRW(s.totalNowKRW);
+      document.getElementById("sumNowUSD").textContent = moneyUSD(s.totalNowUSD);
+
+      document.getElementById("sumProfitKRW").textContent = moneyKRW(s.totalProfitKRW);
+      document.getElementById("sumProfitUSD").textContent = moneyUSD(s.totalProfitUSD);
+
+      document.getElementById("sumRate").textContent = s.totalRate.toFixed(2) + "%";
+
+      document.getElementById("sumAssetKRW").textContent = moneyKRW(s.totalAssetKRW);
+      document.getElementById("sumAssetUSD").textContent = moneyUSD(s.totalAssetUSD);
+
+      document.getElementById("sumProfitKRW").className = "value " + (s.totalProfitKRW >= 0 ? "plus" : "minus");
+      document.getElementById("sumProfitUSD").className = "subvalue " + (s.totalProfitUSD >= 0 ? "plus" : "minus");
+      document.getElementById("sumRate").className = "value " + (s.totalRate >= 0 ? "plus" : "minus");
+    }
+
+    function renderHoldings() {
+      const tbody = document.getElementById("holdingsTable");
+      tbody.innerHTML = "";
+
+      const list = getFilteredSortedHoldings();
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="13">표시할 종목이 없습니다.</td></tr>`;
+        return;
+      }
+
+      const rate = Number(exchangeRateEl.value || 1350);
+      const totalNowKRW = list.reduce((sum, item) => {
+        const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
+        return sum + toKRW(nowTotal, item.currency, rate);
+      }, 0);
+
+      list.forEach((item) => {
+        const totalBuy = getDerivedTotalBuy(item);
+        const avgPrice = getDerivedAvgPrice(item);
+        const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
+        const profit = nowTotal - totalBuy;
+        const profitRate = totalBuy === 0 ? 0 : (profit / totalBuy) * 100;
+        const weight = totalNowKRW === 0 ? 0 : (toKRW(nowTotal, item.currency, rate) / totalNowKRW) * 100;
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${item.broker || "-"}</td>
+          <td>${item.symbol}</td>
+          <td><span class="badge">${item.assetType || "OTHER"}</span></td>
+          <td>${item.currency}</td>
+          <td>${Number(item.shares).toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
+          <td>${moneyByCurrency(totalBuy, item.currency)}</td>
+          <td>${moneyByCurrency(avgPrice, item.currency)}</td>
+          <td>${moneyByCurrency(item.currentPrice, item.currency)}</td>
+          <td>${moneyByCurrency(nowTotal, item.currency)}</td>
+          <td class="${profit >= 0 ? "plus" : "minus"}">
+            ${moneyByCurrency(profit, item.currency)}
+            <br>
+            <span class="small">${profit >= 0 ? "+" : ""}${moneyKRW(toKRW(profit, item.currency, rate))}</span>
+          </td>
+          <td class="${profitRate >= 0 ? "plus" : "minus"}">${profitRate.toFixed(2)}%</td>
+          <td>${weight.toFixed(2)}%</td>
+          <td>
+            <div class="action-cell">
+              <button class="light edit-btn">수정</button>
+              <button class="danger delete-btn">삭제</button>
+            </div>
+          </td>
+        `;
+
+        row.querySelector(".edit-btn").addEventListener("click", () => startEditHolding(item));
+        row.querySelector(".delete-btn").addEventListener("click", () => deleteHolding(item.id));
+        tbody.appendChild(row);
+      });
+    }
+
+    function renderBrokerChart() {
+      const rate = Number(exchangeRateEl.value || 1350);
+      const brokerMap = {};
+
+      holdings.forEach((item) => {
+        const broker = item.broker || "미분류";
+        const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
+        const nowKRW = toKRW(nowTotal, item.currency, rate);
+        brokerMap[broker] = (brokerMap[broker] || 0) + nowKRW;
+      });
+
+      const labels = Object.keys(brokerMap);
+      const data = Object.values(brokerMap);
+      const ctx = document.getElementById("brokerChart");
+
+      if (brokerChart) brokerChart.destroy();
+
+      if (data.length === 0) {
+        brokerChart = new Chart(ctx, {
+          type: "doughnut",
+          data: { labels: ["데이터 없음"], datasets: [{ data: [1] }] }
+        });
+        return;
+      }
+
+      brokerChart = new Chart(ctx, {
+        type: "doughnut",
+        data: { labels, datasets: [{ data }] },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: "bottom" } }
+        }
+      });
+    }
+
+    function renderAssetTypeChart() {
+      const rate = Number(exchangeRateEl.value || 1350);
+      const typeMap = { ETF: 0, STOCK: 0, OTHER: 0 };
+
+      holdings.forEach((item) => {
+        const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
+        const nowKRW = toKRW(nowTotal, item.currency, rate);
+        typeMap[item.assetType || "OTHER"] = (typeMap[item.assetType || "OTHER"] || 0) + nowKRW;
+      });
+
+      const labels = Object.keys(typeMap).filter(k => typeMap[k] > 0);
+      const data = labels.map(k => typeMap[k]);
+      const ctx = document.getElementById("assetTypeChart");
+
+      if (assetTypeChart) assetTypeChart.destroy();
+
+      if (data.length === 0) {
+        assetTypeChart = new Chart(ctx, {
+          type: "pie",
+          data: { labels: ["데이터 없음"], datasets: [{ data: [1] }] }
+        });
+        return;
+      }
+
+      assetTypeChart = new Chart(ctx, {
+        type: "pie",
+        data: { labels, datasets: [{ data }] },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: "bottom" } }
+        }
+      });
+    }
+
+    function updateModeUI() {
+      const mode = inputModeEl.value;
+      if (mode === "totalBuy") {
+        totalBuyAmountEl.disabled = false;
+        avgPriceEl.disabled = true;
+        avgPriceEl.value = "";
+      } else {
+        totalBuyAmountEl.disabled = true;
+        totalBuyAmountEl.value = "";
+        avgPriceEl.disabled = false;
+      }
+    }
+
+    loginBtn.addEventListener("click", async () => {
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        console.error(error);
+        setStatus("Google 로그인 실패: " + error.message);
+        alert("Google 로그인 실패: " + error.message);
+      }
     });
-  } catch (error) {
-    return res.status(500).json({
-      error: error.message || "Unknown error"
+
+    logoutBtn.addEventListener("click", async () => {
+      try {
+        await signOut(auth);
+        setStatus("로그아웃 완료");
+        resetHoldingForm();
+      } catch (error) {
+        console.error(error);
+        setStatus("로그아웃 실패: " + error.message);
+      }
     });
-  }
-}
+
+    saveCashBtn.addEventListener("click", saveCash);
+    saveHoldingBtn.addEventListener("click", saveHolding);
+    cancelEditBtn.addEventListener("click", resetHoldingForm);
+    saveSnapshotBtn.addEventListener("click", saveSnapshot);
+    fetchPriceBtn.addEventListener("click", fetchCurrentPriceForInput);
+    refreshAllPricesBtn.addEventListener("click", refreshAllPrices);
+
+    inputModeEl.addEventListener("change", updateModeUI);
+    exchangeRateEl.addEventListener("input", () => {
+      renderHoldings();
+      renderSummary();
+      renderBrokerChart();
+      renderAssetTypeChart();
+    });
+    cashAmountEl.addEventListener("input", renderSummary);
+    cashCurrencyEl.addEventListener("change", renderSummary);
+    searchTextEl.addEventListener("input", renderHoldings);
+    filterTypeEl.addEventListener("change", renderHoldings);
+    sortByEl.addEventListener("change", renderHoldings);
+
+    onAuthStateChanged(auth, async (user) => {
+      try {
+        if (user) {
+          uid = user.uid;
+          enableAppControls(true);
+          setStatus("Google 로그인 완료");
+          userInfoEl.textContent = `${user.displayName || "사용자"} / ${user.email || ""}`;
+          await loadCurrent();
+          await loadHoldings();
+          await loadHistory();
+          updateModeUI();
+          renderSummary();
+        } else {
+          uid = null;
+          holdings = [];
+          enableAppControls(false);
+          resetHoldingForm();
+          setStatus("로그인 필요");
+          userInfoEl.textContent = "Google 로그인 후 같은 계정으로 모든 기기에서 연동됩니다.";
+          document.getElementById("holdingsTable").innerHTML = "";
+          document.getElementById("historyList").innerHTML = `<div class="small">로그인 후 이력이 표시됩니다.</div>`;
+          renderSummary();
+          renderBrokerChart();
+          renderAssetTypeChart();
+        }
+      } catch (error) {
+        console.error(error);
+        setStatus("초기화 실패: " + error.message);
+      }
+    });
+  </script>
+</body>
+</html>
