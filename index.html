@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>투자 포트폴리오 V14</title>
+  <title>투자 포트폴리오 V15</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -36,7 +36,7 @@
       margin-bottom: 6px;
     }
 
-    input, select {
+    input, select, textarea {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid #d1d5db;
@@ -120,6 +120,7 @@
 
     .plus { color: #047857; }
     .minus { color: #b91c1c; }
+    .neutral { color: #6b7280; }
 
     .status, .small {
       color: #4b5563;
@@ -232,6 +233,16 @@
       flex-wrap: wrap;
     }
 
+    .hint-box {
+      padding: 12px;
+      border-radius: 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #4b5563;
+    }
+
     canvas { max-height: 320px; }
 
     @media (max-width: 1100px) {
@@ -245,8 +256,8 @@
 </head>
 <body>
   <div class="container">
-    <h1>투자 포트폴리오 V14</h1>
-    <div class="sub">Google 로그인 + 자동 현재가 + 종목 편집 + 계좌별 자산 분석 버전</div>
+    <h1>투자 포트폴리오 V15</h1>
+    <div class="sub">Google 로그인 + 자동 현재가 + 종목 편집 + 목표 비중 리밸런싱 계산기</div>
 
     <div class="card">
       <h2>로그인</h2>
@@ -330,7 +341,7 @@
         </div>
       </div>
 
-      <div class="grid-3" style="margin-top:12px;">
+      <div class="grid-4" style="margin-top:12px;">
         <div>
           <label for="totalBuyAmount">총 매수금액</label>
           <input id="totalBuyAmount" type="number" step="any" placeholder="예: 278.1869" />
@@ -343,6 +354,10 @@
           <label for="currentPrice">현재가</label>
           <input id="currentPrice" type="number" step="any" placeholder="예: 56.56" />
         </div>
+        <div>
+          <label for="targetPercent">목표 비중 (%)</label>
+          <input id="targetPercent" type="number" step="any" placeholder="예: 15" />
+        </div>
       </div>
 
       <div class="btn-row">
@@ -352,7 +367,7 @@
       </div>
 
       <div class="small" style="margin-top:10px;">
-        미국 티커 예: JEPI, VOO, QQQ, NVDA, GOOGL
+        목표 비중은 리밸런싱 계산용입니다. 종목이 많아도 일부 핵심 종목만 입력해도 됩니다.
       </div>
     </div>
 
@@ -395,6 +410,31 @@
     <div class="card">
       <h2>계좌별 자산 요약</h2>
       <div id="brokerSummaryCards" class="broker-summary"></div>
+    </div>
+
+    <div class="card">
+      <h2>리밸런싱 계산기</h2>
+      <div class="hint-box">
+        목표 비중을 입력한 종목만 계산합니다. 목표 비중 합계가 100이 아니어도 자동으로 비율 환산해서 계산합니다.
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>종목</th>
+              <th>현재 비중</th>
+              <th>목표 비중</th>
+              <th>차이</th>
+              <th>평가금액</th>
+              <th>목표 금액</th>
+              <th>권장 액션</th>
+              <th>권장 금액</th>
+              <th>대략 수량</th>
+            </tr>
+          </thead>
+          <tbody id="rebalanceTable"></tbody>
+        </table>
+      </div>
     </div>
 
     <div class="card">
@@ -462,6 +502,7 @@
               <th>손익</th>
               <th>수익률</th>
               <th>비중</th>
+              <th>목표비중</th>
               <th>관리</th>
             </tr>
           </thead>
@@ -545,6 +586,7 @@
     const totalBuyAmountEl = document.getElementById("totalBuyAmount");
     const avgPriceEl = document.getElementById("avgPrice");
     const currentPriceEl = document.getElementById("currentPrice");
+    const targetPercentEl = document.getElementById("targetPercent");
 
     const searchTextEl = document.getElementById("searchText");
     const filterTypeEl = document.getElementById("filterType");
@@ -605,6 +647,10 @@
       return Number(item.totalBuyAmount || 0) / shares;
     }
 
+    function getCurrentValueKRW(item, rate) {
+      return toKRW(Number(item.shares || 0) * Number(item.currentPrice || 0), item.currency, rate);
+    }
+
     function resetHoldingForm() {
       editingHoldingId = null;
       brokerEl.value = "";
@@ -616,6 +662,7 @@
       totalBuyAmountEl.value = "";
       avgPriceEl.value = "";
       currentPriceEl.value = "";
+      targetPercentEl.value = "";
       saveHoldingBtn.textContent = "종목 저장";
       cancelEditBtn.style.display = "none";
       editBannerEl.style.display = "none";
@@ -633,6 +680,7 @@
       totalBuyAmountEl.value = item.totalBuyAmount ?? "";
       avgPriceEl.value = item.avgPrice ?? "";
       currentPriceEl.value = item.currentPrice ?? "";
+      targetPercentEl.value = item.targetPercent ?? "";
       saveHoldingBtn.textContent = "종목 수정 저장";
       cancelEditBtn.style.display = "inline-block";
       editBannerEl.style.display = "block";
@@ -734,6 +782,7 @@
       renderHoldings();
       renderSummary();
       renderBrokerSummary();
+      renderRebalancing();
       renderBrokerChart();
       renderAssetTypeChart();
     }
@@ -805,6 +854,7 @@
         const totalBuyAmount = Number(totalBuyAmountEl.value || 0);
         const avgPrice = Number(avgPriceEl.value || 0);
         const currentPrice = Number(currentPriceEl.value || 0);
+        const targetPercent = Number(targetPercentEl.value || 0);
 
         if (!symbol) return alert("종목명을 입력하세요.");
         if (shares <= 0) return alert("보유 수량을 입력하세요.");
@@ -822,6 +872,7 @@
           totalBuyAmount: inputMode === "totalBuy" ? totalBuyAmount : shares * avgPrice,
           avgPrice: inputMode === "avgPrice" ? avgPrice : (shares === 0 ? 0 : totalBuyAmount / shares),
           currentPrice,
+          targetPercent,
           updatedAt: serverTimestamp()
         };
 
@@ -1036,8 +1087,7 @@
 
       holdings.forEach((item) => {
         const broker = item.broker || "미분류";
-        const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
-        const nowKRW = toKRW(nowTotal, item.currency, rate);
+        const nowKRW = getCurrentValueKRW(item, rate);
         brokerMap[broker] = (brokerMap[broker] || 0) + nowKRW;
       });
 
@@ -1060,21 +1110,75 @@
       });
     }
 
+    function renderRebalancing() {
+      const tbody = document.getElementById("rebalanceTable");
+      tbody.innerHTML = "";
+
+      const rate = Number(exchangeRateEl.value || 1350);
+      const targetItems = holdings.filter(item => Number(item.targetPercent || 0) > 0);
+
+      if (targetItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9">목표 비중이 입력된 종목이 없습니다.</td></tr>`;
+        return;
+      }
+
+      const totalNowKRW = holdings.reduce((sum, item) => sum + getCurrentValueKRW(item, rate), 0);
+      const targetSum = targetItems.reduce((sum, item) => sum + Number(item.targetPercent || 0), 0);
+
+      if (targetSum <= 0 || totalNowKRW <= 0) {
+        tbody.innerHTML = `<tr><td colspan="9">리밸런싱 계산을 위한 데이터가 부족합니다.</td></tr>`;
+        return;
+      }
+
+      targetItems.forEach((item) => {
+        const currentValueKRW = getCurrentValueKRW(item, rate);
+        const currentWeight = totalNowKRW === 0 ? 0 : (currentValueKRW / totalNowKRW) * 100;
+        const normalizedTarget = (Number(item.targetPercent || 0) / targetSum) * 100;
+        const targetValueKRW = totalNowKRW * (normalizedTarget / 100);
+        const diffKRW = targetValueKRW - currentValueKRW;
+
+        let actionText = "유지";
+        let actionClass = "neutral";
+
+        if (diffKRW > 1000) {
+          actionText = "매수";
+          actionClass = "plus";
+        } else if (diffKRW < -1000) {
+          actionText = "비중 큼";
+          actionClass = "minus";
+        }
+
+        const priceKRWPerShare = toKRW(Number(item.currentPrice || 0), item.currency, rate);
+        const approxShares = priceKRWPerShare > 0 ? Math.abs(diffKRW) / priceKRWPerShare : 0;
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${item.symbol}</td>
+          <td>${currentWeight.toFixed(2)}%</td>
+          <td>${normalizedTarget.toFixed(2)}%</td>
+          <td class="${diffKRW >= 0 ? "plus" : "minus"}">${(normalizedTarget - currentWeight).toFixed(2)}%</td>
+          <td>${moneyKRW(currentValueKRW)}</td>
+          <td>${moneyKRW(targetValueKRW)}</td>
+          <td class="${actionClass}">${actionText}</td>
+          <td class="${diffKRW >= 0 ? "plus" : "minus"}">${moneyKRW(diffKRW)}</td>
+          <td>${approxShares.toLocaleString(undefined, { maximumFractionDigits: 4 })}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
     function renderHoldings() {
       const tbody = document.getElementById("holdingsTable");
       tbody.innerHTML = "";
 
       const list = getFilteredSortedHoldings();
       if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="13">표시할 종목이 없습니다.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="14">표시할 종목이 없습니다.</td></tr>`;
         return;
       }
 
       const rate = Number(exchangeRateEl.value || 1350);
-      const totalNowKRW = list.reduce((sum, item) => {
-        const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
-        return sum + toKRW(nowTotal, item.currency, rate);
-      }, 0);
+      const totalNowKRW = list.reduce((sum, item) => sum + getCurrentValueKRW(item, rate), 0);
 
       list.forEach((item) => {
         const totalBuy = getDerivedTotalBuy(item);
@@ -1102,6 +1206,7 @@
           </td>
           <td class="${profitRate >= 0 ? "plus" : "minus"}">${profitRate.toFixed(2)}%</td>
           <td>${weight.toFixed(2)}%</td>
+          <td>${Number(item.targetPercent || 0).toFixed(2)}%</td>
           <td>
             <div class="action-cell">
               <button class="light edit-btn">수정</button>
@@ -1122,8 +1227,7 @@
 
       holdings.forEach((item) => {
         const broker = item.broker || "미분류";
-        const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
-        const nowKRW = toKRW(nowTotal, item.currency, rate);
+        const nowKRW = getCurrentValueKRW(item, rate);
         brokerMap[broker] = (brokerMap[broker] || 0) + nowKRW;
       });
 
@@ -1156,8 +1260,7 @@
       const typeMap = { ETF: 0, STOCK: 0, OTHER: 0 };
 
       holdings.forEach((item) => {
-        const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
-        const nowKRW = toKRW(nowTotal, item.currency, rate);
+        const nowKRW = getCurrentValueKRW(item, rate);
         typeMap[item.assetType || "OTHER"] = (typeMap[item.assetType || "OTHER"] || 0) + nowKRW;
       });
 
@@ -1231,6 +1334,7 @@
       renderHoldings();
       renderSummary();
       renderBrokerSummary();
+      renderRebalancing();
       renderBrokerChart();
       renderAssetTypeChart();
     });
@@ -1260,6 +1364,7 @@
           setStatus("로그인 필요");
           userInfoEl.textContent = "Google 로그인 후 같은 계정으로 모든 기기에서 연동됩니다.";
           document.getElementById("holdingsTable").innerHTML = "";
+          document.getElementById("rebalanceTable").innerHTML = `<tr><td colspan="9">로그인 후 표시됩니다.</td></tr>`;
           document.getElementById("historyList").innerHTML = `<div class="small">로그인 후 이력이 표시됩니다.</div>`;
           brokerSummaryCardsEl.innerHTML = `<div class="small">로그인 후 표시됩니다.</div>`;
           lastRefreshTextEl.textContent = "마지막 현재가 업데이트: 아직 없음";
