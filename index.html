@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>투자 포트폴리오 V12</title>
+  <title>투자 포트폴리오 V13</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -80,6 +80,9 @@
     button.google {
       background: #2563eb;
     }
+    button.warn {
+      background: #d97706;
+    }
 
     .summary {
       display: grid;
@@ -126,6 +129,16 @@
       align-items: center;
       gap: 12px;
       flex-wrap: wrap;
+    }
+
+    .edit-banner {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: 14px;
+      display: none;
     }
 
     table {
@@ -197,6 +210,12 @@
       font-size: 12px;
     }
 
+    .action-cell {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
     canvas { max-height: 320px; }
 
     @media (max-width: 1100px) {
@@ -210,8 +229,8 @@
 </head>
 <body>
   <div class="container">
-    <h1>투자 포트폴리오 V12</h1>
-    <div class="sub">Google 로그인 + 자동 현재가 업데이트 + 많은 종목용 검색/정렬/필터 버전</div>
+    <h1>투자 포트폴리오 V13</h1>
+    <div class="sub">Google 로그인 + 자동 현재가 + 종목 편집 기능 버전</div>
 
     <div class="card">
       <h2>로그인</h2>
@@ -252,8 +271,13 @@
     </div>
 
     <div class="card">
-      <h2>종목 입력 <span class="pill">소수점 + 자동현재가</span></h2>
-      <div class="grid-6">
+      <h2>종목 입력 <span class="pill">소수점 + 자동현재가 + 수정모드</span></h2>
+
+      <div id="editBanner" class="edit-banner">
+        현재 종목 수정 중입니다. 값을 바꾼 뒤 <strong>종목 수정 저장</strong>을 누르세요.
+      </div>
+
+      <div class="grid-6" style="margin-top:12px;">
         <div>
           <label for="broker">증권사</label>
           <input id="broker" type="text" placeholder="예: 토스증권" />
@@ -308,7 +332,9 @@
       <div class="btn-row">
         <button id="fetchPriceBtn" class="light" disabled>현재가 자동 가져오기</button>
         <button id="saveHoldingBtn" disabled>종목 저장</button>
+        <button id="cancelEditBtn" class="warn" style="display:none;">수정 취소</button>
       </div>
+
       <div class="small" style="margin-top:10px;">
         미국 티커 예: JEPI, VOO, QQQ, NVDA, GOOGL
       </div>
@@ -412,7 +438,7 @@
               <th>손익</th>
               <th>수익률</th>
               <th>비중</th>
-              <th>삭제</th>
+              <th>관리</th>
             </tr>
           </thead>
           <tbody id="holdingsTable"></tbody>
@@ -473,9 +499,11 @@
     let holdings = [];
     let brokerChart = null;
     let assetTypeChart = null;
+    let editingHoldingId = null;
 
     const statusEl = document.getElementById("status");
     const userInfoEl = document.getElementById("userInfo");
+    const editBannerEl = document.getElementById("editBanner");
 
     const exchangeRateEl = document.getElementById("exchangeRate");
     const cashAmountEl = document.getElementById("cashAmount");
@@ -497,6 +525,7 @@
 
     const saveCashBtn = document.getElementById("saveCashBtn");
     const saveHoldingBtn = document.getElementById("saveHoldingBtn");
+    const cancelEditBtn = document.getElementById("cancelEditBtn");
     const saveSnapshotBtn = document.getElementById("saveSnapshotBtn");
     const fetchPriceBtn = document.getElementById("fetchPriceBtn");
     const refreshAllPricesBtn = document.getElementById("refreshAllPricesBtn");
@@ -547,6 +576,42 @@
       const shares = Number(item.shares || 0);
       if (shares === 0) return 0;
       return Number(item.totalBuyAmount || 0) / shares;
+    }
+
+    function resetHoldingForm() {
+      editingHoldingId = null;
+      brokerEl.value = "";
+      symbolEl.value = "";
+      assetTypeEl.value = "ETF";
+      currencyEl.value = "USD";
+      sharesEl.value = "";
+      inputModeEl.value = "totalBuy";
+      totalBuyAmountEl.value = "";
+      avgPriceEl.value = "";
+      currentPriceEl.value = "";
+      saveHoldingBtn.textContent = "종목 저장";
+      cancelEditBtn.style.display = "none";
+      editBannerEl.style.display = "none";
+      updateModeUI();
+    }
+
+    function startEditHolding(item) {
+      editingHoldingId = item.id;
+      brokerEl.value = item.broker || "";
+      symbolEl.value = item.symbol || "";
+      assetTypeEl.value = item.assetType || "ETF";
+      currencyEl.value = item.currency || "USD";
+      sharesEl.value = item.shares ?? "";
+      inputModeEl.value = item.inputMode || "totalBuy";
+      totalBuyAmountEl.value = item.totalBuyAmount ?? "";
+      avgPriceEl.value = item.avgPrice ?? "";
+      currentPriceEl.value = item.currentPrice ?? "";
+      saveHoldingBtn.textContent = "종목 수정 저장";
+      cancelEditBtn.style.display = "inline-block";
+      editBannerEl.style.display = "block";
+      updateModeUI();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setStatus(`${item.symbol} 수정 모드`);
     }
 
     function getFilteredSortedHoldings() {
@@ -712,36 +777,39 @@
         if (inputMode === "totalBuy" && totalBuyAmount <= 0) return alert("총 매수금액을 입력하세요.");
         if (inputMode === "avgPrice" && avgPrice <= 0) return alert("주당 매수가를 입력하세요.");
 
-        await addDoc(
-          collection(db, "users", uid, "portfolio", "current", "holdings"),
-          {
-            broker,
-            symbol,
-            assetType,
-            currency,
-            shares,
-            inputMode,
-            totalBuyAmount: inputMode === "totalBuy" ? totalBuyAmount : shares * avgPrice,
-            avgPrice: inputMode === "avgPrice" ? avgPrice : (shares === 0 ? 0 : totalBuyAmount / shares),
-            currentPrice,
-            createdAt: serverTimestamp()
-          }
-        );
+        const payload = {
+          broker,
+          symbol,
+          assetType,
+          currency,
+          shares,
+          inputMode,
+          totalBuyAmount: inputMode === "totalBuy" ? totalBuyAmount : shares * avgPrice,
+          avgPrice: inputMode === "avgPrice" ? avgPrice : (shares === 0 ? 0 : totalBuyAmount / shares),
+          currentPrice,
+          updatedAt: serverTimestamp()
+        };
 
-        brokerEl.value = "";
-        symbolEl.value = "";
-        sharesEl.value = "";
-        totalBuyAmountEl.value = "";
-        avgPriceEl.value = "";
-        currentPriceEl.value = "";
-        currencyEl.value = "USD";
-        assetTypeEl.value = "ETF";
-        inputModeEl.value = "totalBuy";
+        if (editingHoldingId) {
+          await updateDoc(
+            doc(db, "users", uid, "portfolio", "current", "holdings", editingHoldingId),
+            payload
+          );
+          setStatus("종목 수정 완료");
+          alert("종목 수정 완료");
+        } else {
+          await addDoc(
+            collection(db, "users", uid, "portfolio", "current", "holdings"),
+            {
+              ...payload,
+              createdAt: serverTimestamp()
+            }
+          );
+          setStatus("종목 저장 완료");
+          alert("종목 저장 완료");
+        }
 
-        setStatus("종목 저장 완료");
-        alert("종목 저장 완료");
-
-        updateModeUI();
+        resetHoldingForm();
         await loadHoldings();
       } catch (error) {
         console.error(error);
@@ -752,6 +820,9 @@
 
     async function deleteHolding(id) {
       try {
+        if (editingHoldingId === id) {
+          resetHoldingForm();
+        }
         await deleteDoc(doc(db, "users", uid, "portfolio", "current", "holdings", id));
         setStatus("종목 삭제 완료");
         await loadHoldings();
@@ -952,10 +1023,16 @@
           </td>
           <td class="${profitRate >= 0 ? "plus" : "minus"}">${profitRate.toFixed(2)}%</td>
           <td>${weight.toFixed(2)}%</td>
-          <td><button class="danger">삭제</button></td>
+          <td>
+            <div class="action-cell">
+              <button class="light edit-btn">수정</button>
+              <button class="danger delete-btn">삭제</button>
+            </div>
+          </td>
         `;
 
-        row.querySelector("button").addEventListener("click", () => deleteHolding(item.id));
+        row.querySelector(".edit-btn").addEventListener("click", () => startEditHolding(item));
+        row.querySelector(".delete-btn").addEventListener("click", () => deleteHolding(item.id));
         tbody.appendChild(row);
       });
     }
@@ -1056,6 +1133,7 @@
       try {
         await signOut(auth);
         setStatus("로그아웃 완료");
+        resetHoldingForm();
       } catch (error) {
         console.error(error);
         setStatus("로그아웃 실패: " + error.message);
@@ -1064,6 +1142,7 @@
 
     saveCashBtn.addEventListener("click", saveCash);
     saveHoldingBtn.addEventListener("click", saveHolding);
+    cancelEditBtn.addEventListener("click", resetHoldingForm);
     saveSnapshotBtn.addEventListener("click", saveSnapshot);
     fetchPriceBtn.addEventListener("click", fetchCurrentPriceForInput);
     refreshAllPricesBtn.addEventListener("click", refreshAllPrices);
@@ -1097,6 +1176,7 @@
           uid = null;
           holdings = [];
           enableAppControls(false);
+          resetHoldingForm();
           setStatus("로그인 필요");
           userInfoEl.textContent = "Google 로그인 후 같은 계정으로 모든 기기에서 연동됩니다.";
           document.getElementById("holdingsTable").innerHTML = "";
