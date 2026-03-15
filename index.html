@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>투자 포트폴리오 V13</title>
+  <title>투자 포트폴리오 V14</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -27,6 +27,7 @@
     }
 
     h2 { margin: 0 0 14px; font-size: 22px; }
+    h3 { margin: 0 0 12px; font-size: 18px; }
 
     label {
       display: block;
@@ -90,6 +91,12 @@
       gap: 12px;
     }
 
+    .broker-summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
     .metric {
       background: #f9fafb;
       border: 1px solid #e5e7eb;
@@ -139,6 +146,15 @@
       color: #9a3412;
       font-size: 14px;
       display: none;
+    }
+
+    .update-box {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 14px;
     }
 
     table {
@@ -219,7 +235,7 @@
     canvas { max-height: 320px; }
 
     @media (max-width: 1100px) {
-      .grid-2, .grid-3, .grid-4, .grid-5, .grid-6, .summary, .toolbar {
+      .grid-2, .grid-3, .grid-4, .grid-5, .grid-6, .summary, .toolbar, .broker-summary {
         grid-template-columns: 1fr;
       }
       body { padding: 12px; }
@@ -229,8 +245,8 @@
 </head>
 <body>
   <div class="container">
-    <h1>투자 포트폴리오 V13</h1>
-    <div class="sub">Google 로그인 + 자동 현재가 + 종목 편집 기능 버전</div>
+    <h1>투자 포트폴리오 V14</h1>
+    <div class="sub">Google 로그인 + 자동 현재가 + 종목 편집 + 계좌별 자산 분석 버전</div>
 
     <div class="card">
       <h2>로그인</h2>
@@ -377,14 +393,22 @@
     </div>
 
     <div class="card">
+      <h2>계좌별 자산 요약</h2>
+      <div id="brokerSummaryCards" class="broker-summary"></div>
+    </div>
+
+    <div class="card">
       <h2>분석</h2>
-      <div class="grid-2">
+      <div class="update-box">
+        <div id="lastRefreshText">마지막 현재가 업데이트: 아직 없음</div>
+      </div>
+      <div class="grid-2" style="margin-top:14px;">
         <div>
-          <h3 style="margin-top:0;">증권사별 자산 비중</h3>
+          <h3>증권사별 자산 비중</h3>
           <canvas id="brokerChart"></canvas>
         </div>
         <div>
-          <h3 style="margin-top:0;">ETF / 개별주 비중</h3>
+          <h3>ETF / 개별주 비중</h3>
           <canvas id="assetTypeChart"></canvas>
         </div>
       </div>
@@ -500,10 +524,13 @@
     let brokerChart = null;
     let assetTypeChart = null;
     let editingHoldingId = null;
+    let lastRefreshText = "";
 
     const statusEl = document.getElementById("status");
     const userInfoEl = document.getElementById("userInfo");
     const editBannerEl = document.getElementById("editBanner");
+    const brokerSummaryCardsEl = document.getElementById("brokerSummaryCards");
+    const lastRefreshTextEl = document.getElementById("lastRefreshText");
 
     const exchangeRateEl = document.getElementById("exchangeRate");
     const cashAmountEl = document.getElementById("cashAmount");
@@ -679,11 +706,17 @@
         exchangeRateEl.value = data.exchangeRate ?? 1350;
         cashAmountEl.value = data.cashAmount ?? "";
         cashCurrencyEl.value = data.cashCurrency ?? "KRW";
+        lastRefreshText = data.lastRefreshText || "";
       } else {
         exchangeRateEl.value = 1350;
         cashAmountEl.value = "";
         cashCurrencyEl.value = "KRW";
+        lastRefreshText = "";
       }
+
+      lastRefreshTextEl.textContent = lastRefreshText
+        ? `마지막 현재가 업데이트: ${lastRefreshText}`
+        : "마지막 현재가 업데이트: 아직 없음";
     }
 
     async function loadHoldings() {
@@ -700,6 +733,7 @@
 
       renderHoldings();
       renderSummary();
+      renderBrokerSummary();
       renderBrokerChart();
       renderAssetTypeChart();
     }
@@ -744,6 +778,7 @@
             exchangeRate,
             cashAmount,
             cashCurrency,
+            lastRefreshText,
             updated: serverTimestamp()
           },
           { merge: true }
@@ -888,6 +923,8 @@
 
         setStatus(`전체 현재가 새로고침 중... (${usdItems.length}개)`);
 
+        let refreshedCount = 0;
+
         for (const item of usdItems) {
           try {
             const data = await fetchQuote(item.symbol);
@@ -899,15 +936,25 @@
                   updatedAt: serverTimestamp()
                 }
               );
+              refreshedCount += 1;
             }
           } catch (err) {
             console.error(item.symbol, err);
           }
         }
 
+        lastRefreshText = new Date().toLocaleString("ko-KR");
+        await setDoc(
+          doc(db, "users", uid, "portfolio", "current"),
+          { lastRefreshText, updated: serverTimestamp() },
+          { merge: true }
+        );
+
+        lastRefreshTextEl.textContent = `마지막 현재가 업데이트: ${lastRefreshText}`;
+
         await loadHoldings();
-        setStatus("전체 현재가 새로고침 완료");
-        alert("전체 현재가 새로고침 완료");
+        setStatus(`전체 현재가 새로고침 완료 (${refreshedCount}/${usdItems.length})`);
+        alert(`전체 현재가 새로고침 완료 (${refreshedCount}/${usdItems.length})`);
       } catch (error) {
         console.error(error);
         setStatus("전체 현재가 새로고침 실패: " + error.message);
@@ -979,6 +1026,38 @@
       document.getElementById("sumProfitKRW").className = "value " + (s.totalProfitKRW >= 0 ? "plus" : "minus");
       document.getElementById("sumProfitUSD").className = "subvalue " + (s.totalProfitUSD >= 0 ? "plus" : "minus");
       document.getElementById("sumRate").className = "value " + (s.totalRate >= 0 ? "plus" : "minus");
+    }
+
+    function renderBrokerSummary() {
+      brokerSummaryCardsEl.innerHTML = "";
+
+      const rate = Number(exchangeRateEl.value || 1350);
+      const brokerMap = {};
+
+      holdings.forEach((item) => {
+        const broker = item.broker || "미분류";
+        const nowTotal = Number(item.shares || 0) * Number(item.currentPrice || 0);
+        const nowKRW = toKRW(nowTotal, item.currency, rate);
+        brokerMap[broker] = (brokerMap[broker] || 0) + nowKRW;
+      });
+
+      const brokers = Object.keys(brokerMap);
+
+      if (brokers.length === 0) {
+        brokerSummaryCardsEl.innerHTML = `<div class="small">아직 보유 종목이 없습니다.</div>`;
+        return;
+      }
+
+      brokers.forEach((broker) => {
+        const card = document.createElement("div");
+        card.className = "metric";
+        card.innerHTML = `
+          <div class="label">${broker}</div>
+          <div class="value">${moneyKRW(brokerMap[broker])}</div>
+          <div class="subvalue">${moneyUSD(brokerMap[broker] / Number(exchangeRateEl.value || 1350))}</div>
+        `;
+        brokerSummaryCardsEl.appendChild(card);
+      });
     }
 
     function renderHoldings() {
@@ -1151,6 +1230,7 @@
     exchangeRateEl.addEventListener("input", () => {
       renderHoldings();
       renderSummary();
+      renderBrokerSummary();
       renderBrokerChart();
       renderAssetTypeChart();
     });
@@ -1181,6 +1261,8 @@
           userInfoEl.textContent = "Google 로그인 후 같은 계정으로 모든 기기에서 연동됩니다.";
           document.getElementById("holdingsTable").innerHTML = "";
           document.getElementById("historyList").innerHTML = `<div class="small">로그인 후 이력이 표시됩니다.</div>`;
+          brokerSummaryCardsEl.innerHTML = `<div class="small">로그인 후 표시됩니다.</div>`;
+          lastRefreshTextEl.textContent = "마지막 현재가 업데이트: 아직 없음";
           renderSummary();
           renderBrokerChart();
           renderAssetTypeChart();
